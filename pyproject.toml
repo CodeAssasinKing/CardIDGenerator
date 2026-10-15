@@ -1,0 +1,13 @@
+[project]
+name = "new-project"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.143.1",
+    "pillow>=12.3.0",
+    "pydantic>=2.14.1",
+    "qrcode[pil]>=8.2",
+    "taskiq>=0.13.0",
+    "taskiq-nats>=0.7.0",
+    "uvicorn>=0.54.0",
+]
