@@ -10,11 +10,11 @@ from tasks.index_card import cleanup_old_batches_task
 
 
 async def periodic_cleanup():
-    """Фоновая очистка старых архивов старше 2 часов (каждые 30 минут)."""
+    """Фоновая очистка переданных и старых проектов каждый час (3600 сек)."""
     while True:
         try:
-            await asyncio.sleep(1800)
-            await cleanup_old_batches_task.kiq(max_age_seconds=7200)
+            await asyncio.sleep(3600)
+            await cleanup_old_batches_task.kiq(max_age_seconds=3600)
         except asyncio.CancelledError:
             break
         except Exception:
@@ -28,9 +28,9 @@ async def lifespan(app: FastAPI):
     cleanup_bg_task = None
     if not broker.is_worker_process:
         await broker.startup()
-        # Запускаем фоновую периодическую очистку и чистим при старте
+        # Запускаем фоновую периодическую очистку каждый час и чистим при старте
         cleanup_bg_task = asyncio.create_task(periodic_cleanup())
-        await cleanup_old_batches_task.kiq(max_age_seconds=7200)
+        await cleanup_old_batches_task.kiq(max_age_seconds=3600)
 
     yield
 

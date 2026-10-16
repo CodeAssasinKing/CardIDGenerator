@@ -184,8 +184,13 @@ async def create_a_simple_cards(
 
 
 @broker.task
-def cleanup_old_batches_task(max_age_seconds: int = 7200) -> int:
-    """Удаляет папки проектов в ./templates старше max_age_seconds (по умолчанию 2 часа)."""
+def cleanup_old_batches_task(max_age_seconds: int = 3600) -> int:
+    """
+    Почасовая фоновая очистка:
+    - Удаляет папки проектов, если они уже были скачаны пользователем (.downloaded)
+    - Удаляет невостребованные проекты старше max_age_seconds (по умолчанию 1 час / 3600 сек)
+    - Полностью защищает системные папки ('custom', 'previews') и статические файлы.
+    """
     now = time.time()
     base_dir = Path("./templates")
     deleted_count = 0
@@ -193,13 +198,23 @@ def cleanup_old_batches_task(max_age_seconds: int = 7200) -> int:
     if not base_dir.exists():
         return 0
 
+    PROTECTED_DIRS = {"custom", "previews"}
+
     for item in base_dir.iterdir():
-        if item.is_dir():
-            try:
-                if now - item.stat().st_mtime > max_age_seconds:
-                    shutil.rmtree(item, ignore_errors=True)
-                    deleted_count += 1
-            except Exception:
-                pass
+        if not item.is_dir():
+            continue
+        if item.name in PROTECTED_DIRS:
+            continue
+
+        try:
+            downloaded_marker = item / ".downloaded"
+            is_downloaded = downloaded_marker.exists()
+            is_expired = (now - item.stat().st_mtime) > max_age_seconds
+
+            if is_downloaded or is_expired:
+                shutil.rmtree(item, ignore_errors=True)
+                deleted_count += 1
+        except Exception:
+            pass
 
     return deleted_count

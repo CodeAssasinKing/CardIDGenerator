@@ -1,7 +1,7 @@
 services:
   # NATS Message Broker with JetStream enabled
   nats:
-    image: nats:latest
+    image: nats:alpine
     container_name: badge_nats
     command: ["-js", "-m", "8222"]
     ports:

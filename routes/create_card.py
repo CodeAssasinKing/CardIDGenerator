@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import uuid
 from pathlib import Path
 from typing import List, Dict, Any
@@ -401,6 +402,24 @@ async def download_cards(project_uuid: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Архив еще генерируется воркером или не найден. Проверьте статус в /api/stream/{project_uuid}",
         )
+
+    # Помечаем проект как переданный/скачанный пользователем (для почасовой очистки)
+    try:
+        marker_file = archive_path.parent / ".downloaded"
+        marker_file.write_text(str(time.time()), encoding="utf-8")
+    except Exception:
+        pass
+
+    try:
+        kv = await get_kv()
+        raw_val = await kv.get(project_uuid)
+        if raw_val and raw_val.value:
+            proj_data = json.loads(raw_val.value.decode("utf-8"))
+            proj_data["is_downloaded"] = True
+            proj_data["downloaded_at"] = time.time()
+            await kv.put(project_uuid, json.dumps(proj_data).encode("utf-8"))
+    except Exception:
+        pass
 
     return FileResponse(
         path=archive_path,

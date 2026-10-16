@@ -240,9 +240,17 @@
               <div class="inline-block px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 text-xs font-bold rounded-md uppercase tracking-wider mb-1" data-i18n="step3_tag">Step 3</div>
               <h2 class="text-xl font-bold text-slate-900 dark:text-white" data-i18n="step3_title">Attendee List</h2>
             </div>
-            <span id="employee-count-badge" class="px-3 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold text-xs rounded-xl border border-blue-200 dark:border-blue-800">
-              Attendees: 3
-            </span>
+            <div class="flex items-center space-x-2">
+              <button id="btn-toggle-attendee-table" type="button" onclick="toggleAttendeeViewer()" 
+                      class="px-2.5 py-1 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 transition flex items-center space-x-1.5 shadow-sm" 
+                      title="Browse parsed attendees with infinite scroll">
+                <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span data-i18n="btn_preview_table">Preview Table</span>
+              </button>
+              <span id="employee-count-badge" class="px-3 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold text-xs rounded-xl border border-blue-200 dark:border-blue-800">
+                Attendees: 3
+              </span>
+            </div>
           </div>
 
           <!-- Вкладки ввода сотрудников -->
@@ -282,11 +290,10 @@
               <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelUpload(this)">
             </label>
             <div id="excel-preview-box" class="hidden bg-slate-50 dark:bg-slate-900 rounded-xl p-3 border border-slate-200 dark:border-slate-700 space-y-2">
-              <div class="flex justify-between items-center">
+              <div class="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
                 <span id="excel-filename" class="font-bold text-xs text-slate-800 dark:text-slate-200"></span>
                 <span id="excel-parsed-count" class="text-xs font-bold text-blue-600 dark:text-blue-400"></span>
               </div>
-              <div id="excel-table-preview" class="overflow-x-auto text-[11px] text-slate-600 dark:text-slate-300 max-h-32 overflow-y-auto"></div>
             </div>
           </div>
 
@@ -298,6 +305,45 @@
             </div>
             <textarea id="users-json" rows="7" oninput="syncFromJson()"
                       class="w-full font-mono text-xs p-3.5 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100"></textarea>
+          </div>
+
+          <!-- Блок интерактивной таблицы с бесконечной пагинацией -->
+          <div id="attendee-table-box" class="hidden mt-3 bg-slate-50 dark:bg-slate-900 rounded-xl p-3 border border-slate-200 dark:border-slate-700 space-y-2 transition-all">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-xs text-slate-800 dark:text-slate-200" data-i18n="attendee_table_title">Attendee Table</span>
+                <span id="attendee-pagination-status" class="text-xs font-semibold text-blue-600 dark:text-blue-400"></span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <div class="relative">
+                  <input type="text" id="attendee-search-input" oninput="onAttendeeSearchInput(this.value)" 
+                         placeholder="Search attendees..." data-i18n-placeholder="attendee_search_placeholder"
+                         class="w-44 sm:w-56 pl-7 pr-6 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                  <button type="button" id="btn-clear-attendee-search" onclick="clearAttendeeSearch()" class="hidden absolute right-2 top-1 text-slate-400 hover:text-slate-600 text-xs">✕</button>
+                </div>
+                <button type="button" onclick="loadAllAttendees()" id="btn-attendee-load-all" class="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline" data-i18n="btn_load_all">Show All</button>
+                <button type="button" onclick="toggleAttendeeViewer(false)" class="text-slate-400 hover:text-slate-600 text-xs ml-1" title="Close table">✕</button>
+              </div>
+            </div>
+
+            <div id="attendee-scroll-container" class="overflow-x-auto overflow-y-auto max-h-56 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 relative">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900 backdrop-blur z-10 shadow-sm border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th class="py-2 px-2.5 font-bold text-slate-600 dark:text-slate-300 w-12 text-center" data-i18n="attendee_col_id">ID</th>
+                    <th class="py-2 px-2.5 font-bold text-slate-600 dark:text-slate-300" data-i18n="attendee_col_fio">Full Name / Name</th>
+                    <th class="py-2 px-2.5 font-bold text-slate-600 dark:text-slate-300" data-i18n="attendee_col_phone">Phone</th>
+                    <th class="py-2 px-2.5 font-bold text-slate-600 dark:text-slate-300" data-i18n="attendee_col_web">Website</th>
+                  </tr>
+                </thead>
+                <tbody id="attendee-tbody" class="divide-y divide-slate-100 dark:divide-slate-700/60">
+                </tbody>
+              </table>
+              <div id="attendee-sentinel" class="py-2 text-center text-xs text-slate-400 dark:text-slate-500 italic hidden" data-i18n="attendee_scroll_tip">
+                Scroll down for more...
+              </div>
+            </div>
           </div>
         </div>
 
@@ -681,6 +727,17 @@
         step3_tag: "Шаг 3",
         step3_title: "Список сотрудников",
         badge_emp_count: "Сотрудников: ",
+        btn_preview_table: "Таблица участников",
+        attendee_table_title: "Список участников",
+        attendee_search_placeholder: "Поиск по имени, телефону, сайту, ID...",
+        attendee_col_id: "ID",
+        attendee_col_fio: "ФИО / Имя",
+        attendee_col_phone: "Телефон",
+        attendee_col_web: "Сайт",
+        attendee_empty: "Участники не найдены",
+        btn_load_all: "Показать всех",
+        attendee_scroll_tip: "Прокрутите вниз для загрузки...",
+        attendee_all_loaded: "Все участники отображены",
         tab_text: "📝 Список текстом",
         tab_excel: "📊 Excel / CSV файл",
         tab_json: "⚙️ JSON (API)",
@@ -802,6 +859,17 @@
         step3_tag: "Step 3",
         step3_title: "Attendee List",
         badge_emp_count: "Attendees: ",
+        btn_preview_table: "Preview Table",
+        attendee_table_title: "Attendee List",
+        attendee_search_placeholder: "Search by name, phone, website, ID...",
+        attendee_col_id: "ID",
+        attendee_col_fio: "Full Name / Name",
+        attendee_col_phone: "Phone",
+        attendee_col_web: "Website",
+        attendee_empty: "No attendees found",
+        btn_load_all: "Show All",
+        attendee_scroll_tip: "Scroll down for more...",
+        attendee_all_loaded: "All attendees loaded",
         tab_text: "📝 Text List",
         tab_excel: "📊 Excel / CSV File",
         tab_json: "⚙️ JSON (API)",
@@ -985,6 +1053,10 @@
       }
 
       renderTemplatesGrid();
+
+      if (typeof attendeeViewerVisible !== 'undefined' && attendeeViewerVisible) {
+        renderAttendeeTable(false);
+      }
     }
 
     // ================== LAYOUT & BUILDER STATE ==================
@@ -1947,6 +2019,9 @@
         });
         document.getElementById('users-text').value = textLines.join('\n');
       }
+      if (attendeeViewerVisible) {
+        renderAttendeeTable(false);
+      }
     }
 
     let textParseTimeout = null;
@@ -2024,26 +2099,171 @@
         document.getElementById('excel-filename').innerText = file.name;
         const countMsg = currentLang === 'ru' ? `Загружено: ${data.count} сотрудников` : `Loaded: ${data.count} attendees`;
         document.getElementById('excel-parsed-count').innerText = countMsg;
-
-        const tableDiv = document.getElementById('excel-table-preview');
-        const hFio = currentLang === 'ru' ? 'ФИО / Имя' : 'Full Name / Name';
-        const hPhone = currentLang === 'ru' ? 'Телефон' : 'Phone';
-        const hWeb = currentLang === 'ru' ? 'Сайт' : 'Website';
-        let html = `<table class="w-full text-left border-collapse border border-slate-200 dark:border-slate-700"><thead><tr class="bg-slate-100 dark:bg-slate-800"><th class="p-1 border border-slate-200 dark:border-slate-700">ID</th><th class="p-1 border border-slate-200 dark:border-slate-700">${hFio}</th><th class="p-1 border border-slate-200 dark:border-slate-700">${hPhone}</th><th class="p-1 border border-slate-200 dark:border-slate-700">${hWeb}</th></tr></thead><tbody>`;
-        data.employees.slice(0, 10).forEach(emp => {
-          const nameStr = emp.full_name || `${emp.name || ''} ${emp.surname || ''}`.trim();
-          html += `<tr><td class="p-1 border border-slate-200 dark:border-slate-700">#${emp.id || ''}</td><td class="p-1 border border-slate-200 dark:border-slate-700 font-semibold">${nameStr}</td><td class="p-1 border border-slate-200 dark:border-slate-700">${emp.phone || '-'}</td><td class="p-1 border border-slate-200 dark:border-slate-700">${emp.website || '-'}</td></tr>`;
-        });
-        if (data.employees.length > 10) {
-          const moreMsg = currentLang === 'ru' ? `... и еще ${data.employees.length - 10} сотрудников` : `... and ${data.employees.length - 10} more attendees`;
-          html += `<tr><td colspan="4" class="p-1 text-center text-slate-400 dark:text-slate-500 italic">${moreMsg}</td></tr>`;
-        }
-        html += '</tbody></table>';
-        tableDiv.innerHTML = html;
         previewBox.classList.remove('hidden');
+
+        // Открываем интерактивную таблицу с бесконечной пагинацией
+        toggleAttendeeViewer(true);
 
       } catch (e) {
         alert('Import error: ' + e.message);
+      }
+    }
+
+    // ================== ИНТЕРАКТИВНАЯ ТАБЛИЦА УЧАСТНИКОВ (INFINITE SCROLL) ==================
+    const ATTENDEE_PAGE_SIZE = 25;
+    let attendeeDisplayLimit = ATTENDEE_PAGE_SIZE;
+    let attendeeSearchQuery = '';
+    let attendeeViewerVisible = false;
+
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return String(str || '');
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function getFilteredAttendees() {
+      const query = (attendeeSearchQuery || '').trim().toLowerCase();
+      if (!query) return currentEmployees || [];
+      return (currentEmployees || []).filter(emp => {
+        const nameStr = (emp.full_name || `${emp.name || ''} ${emp.surname || ''}`).toLowerCase();
+        const phone = (emp.phone || '').toLowerCase();
+        const web = (emp.website || '').toLowerCase();
+        const id = String(emp.id || '');
+        return nameStr.includes(query) || phone.includes(query) || web.includes(query) || id.includes(query);
+      });
+    }
+
+    function renderAttendeeTable(resetLimit = false) {
+      if (resetLimit) {
+        attendeeDisplayLimit = ATTENDEE_PAGE_SIZE;
+      }
+      const filtered = getFilteredAttendees();
+      const total = (currentEmployees || []).length;
+      const tbody = document.getElementById('attendee-tbody');
+      const statusEl = document.getElementById('attendee-pagination-status');
+      const sentinel = document.getElementById('attendee-sentinel');
+      const loadAllBtn = document.getElementById('btn-attendee-load-all');
+
+      if (!tbody) return;
+
+      const slice = filtered.slice(0, attendeeDisplayLimit);
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400 dark:text-slate-500 italic">${i18n[currentLang]?.attendee_empty || 'No attendees found'}</td></tr>`;
+        if (sentinel) sentinel.classList.add('hidden');
+        if (loadAllBtn) loadAllBtn.classList.add('hidden');
+        if (statusEl) statusEl.innerText = currentLang === 'ru' ? `0 из ${total}` : `0 of ${total}`;
+        return;
+      }
+
+      let html = '';
+      slice.forEach(emp => {
+        const nameStr = emp.full_name || `${emp.name || ''} ${emp.surname || ''}`.trim() || '-';
+        const phoneStr = emp.phone || '-';
+        const webStr = emp.website || '-';
+        html += `
+          <tr class="hover:bg-blue-50/40 dark:hover:bg-slate-700/40 transition-colors">
+            <td class="py-2 px-2.5 font-mono text-[11px] text-slate-400 dark:text-slate-500 text-center font-bold">#${emp.id || ''}</td>
+            <td class="py-2 px-2.5 font-semibold text-slate-800 dark:text-slate-100">${escapeHtml(nameStr)}</td>
+            <td class="py-2 px-2.5 text-slate-600 dark:text-slate-300 font-mono text-[11px]">${escapeHtml(phoneStr)}</td>
+            <td class="py-2 px-2.5 text-blue-600 dark:text-blue-400 truncate max-w-[160px] text-[11px]">${escapeHtml(webStr)}</td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+
+      // Отображение счетчика
+      const isFiltered = attendeeSearchQuery.trim().length > 0;
+      if (statusEl) {
+        if (isFiltered) {
+          statusEl.innerText = currentLang === 'ru' 
+            ? `Найдено: ${filtered.length} (показано ${slice.length}) из ${total}` 
+            : `Found: ${filtered.length} (showing ${slice.length}) of ${total}`;
+        } else {
+          statusEl.innerText = currentLang === 'ru' 
+            ? `Показано ${slice.length} из ${total}` 
+            : `Showing ${slice.length} of ${total}`;
+        }
+      }
+
+      if (slice.length < filtered.length) {
+        if (sentinel) {
+          sentinel.classList.remove('hidden');
+          sentinel.innerText = i18n[currentLang]?.attendee_scroll_tip || 'Scroll down for more...';
+        }
+        if (loadAllBtn) loadAllBtn.classList.remove('hidden');
+      } else {
+        if (sentinel) {
+          if (filtered.length > ATTENDEE_PAGE_SIZE) {
+            sentinel.classList.remove('hidden');
+            sentinel.innerText = i18n[currentLang]?.attendee_all_loaded || 'All attendees loaded';
+          } else {
+            sentinel.classList.add('hidden');
+          }
+        }
+        if (loadAllBtn) loadAllBtn.classList.add('hidden');
+      }
+    }
+
+    function setupAttendeeInfiniteScroll() {
+      const container = document.getElementById('attendee-scroll-container');
+      if (!container) return;
+
+      container.addEventListener('scroll', () => {
+        const filtered = getFilteredAttendees();
+        if (attendeeDisplayLimit >= filtered.length) return;
+
+        // Автоматическая загрузка следующей порции при достижении низа скролла
+        if (container.scrollHeight - container.scrollTop - container.clientHeight < 45) {
+          attendeeDisplayLimit += ATTENDEE_PAGE_SIZE;
+          renderAttendeeTable(false);
+        }
+      });
+    }
+
+    function loadAllAttendees() {
+      const filtered = getFilteredAttendees();
+      attendeeDisplayLimit = filtered.length;
+      renderAttendeeTable(false);
+    }
+
+    function onAttendeeSearchInput(val) {
+      attendeeSearchQuery = val || '';
+      const clearBtn = document.getElementById('btn-clear-attendee-search');
+      if (clearBtn) {
+        if (attendeeSearchQuery) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+      renderAttendeeTable(true);
+    }
+
+    function clearAttendeeSearch() {
+      const input = document.getElementById('attendee-search-input');
+      if (input) input.value = '';
+      attendeeSearchQuery = '';
+      const clearBtn = document.getElementById('btn-clear-attendee-search');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      renderAttendeeTable(true);
+    }
+
+    function toggleAttendeeViewer(forceShow) {
+      const box = document.getElementById('attendee-table-box');
+      if (!box) return;
+      if (typeof forceShow === 'boolean') {
+        attendeeViewerVisible = forceShow;
+      } else {
+        attendeeViewerVisible = !attendeeViewerVisible;
+      }
+
+      if (attendeeViewerVisible) {
+        box.classList.remove('hidden');
+        renderAttendeeTable(true);
+      } else {
+        box.classList.add('hidden');
       }
     }
 
@@ -2188,6 +2408,7 @@
 
     // Инициализация при старте
     syncFromEmployees('init');
+    setupAttendeeInfiniteScroll();
     applyTranslations();
     loadTemplates();
   </script>
