@@ -289,6 +289,8 @@ async def create_card(
     payload = [item.model_dump() for item in data]
     qr_fields_list = [f.strip() for f in qr_fields.split(",") if f.strip()] if qr_fields else None
 
+    clean_category_title = category_title.strip() if category_title and category_title.strip() else None
+
     # 1. Записываем начальный статус в KV
     kv = await get_kv()
     initial_event = {
@@ -298,7 +300,7 @@ async def create_card(
         "percent": 0,
         "template": template,
         "event_date": event_date,
-        "category_title": category_title,
+        "category_title": clean_category_title,
         "phone": phone,
         "website": website,
         "bg_color": bg_color,
@@ -316,7 +318,7 @@ async def create_card(
         project_uuid=project_uuid,
         template_id=template,
         event_date=event_date,
-        category_title=category_title,
+        category_title=clean_category_title,
         phone=phone,
         website=website,
         bg_color=bg_color,

@@ -125,15 +125,6 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1" data-i18n="lbl_category">
-            Header / Category Tag
-          </label>
-          <input type="text" id="category-title" placeholder="e.g., EVENT PASS (or blank)" data-i18n-placeholder="placeholder_category"
-                 class="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
-          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5" data-i18n="hint_category">Leave blank to hide.</p>
-        </div>
-
-        <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1" data-i18n="lbl_date">Event Date</label>
           <input type="text" id="event-date" value="15.11.2026" 
                  class="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
@@ -385,9 +376,11 @@
             <div id="canvas-accent-bar" onclick="setActiveElement('accent_bar')" title="Configure accent bar"
                  class="absolute top-0 left-0 w-full h-[6px] bg-blue-600 cursor-pointer hover:opacity-90 transition-all z-10"></div>
 
-            <!-- Блок 1: Категория -->
+            <!-- Блок 1: Верхняя плашка / Категория -->
             <div id="item-category" class="draggable-item font-semibold text-[11px]" 
-                 style="left: 28px; top: 26px; color: #64748B;">
+                 style="left: 28px; top: 26px; color: #64748B;"
+                 title="Верхняя плашка / Top Tag (Двойной клик для редактирования текста)"
+                 ondblclick="setActiveElement('category_title'); const ti = document.getElementById('category-text-input'); if(ti){ti.focus(); ti.select();}">
               EVENT PASS
             </div>
 
@@ -495,16 +488,23 @@
                 <h3 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   <span data-i18n="bld_sec2_title">2. Element: </span><span id="current-element-title" class="text-blue-600 dark:text-blue-400">First Name</span>
                 </h3>
-                <label class="flex items-center space-x-1.5 text-xs font-semibold cursor-pointer">
-                  <input type="checkbox" id="elem-visible" checked onchange="toggleElementVisible(this.checked)" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
-                  <span data-i18n="lbl_elem_visible">Visible</span>
-                </label>
+                <div class="flex items-center space-x-2">
+                  <!-- Кнопка добавления нового текста -->
+                  <button type="button" onclick="addNewCustomText()" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1" title="Add custom text to layout">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <span data-i18n="btn_add_text">+ Add Custom Text</span>
+                  </button>
+                  <label class="flex items-center space-x-1.5 text-xs font-semibold cursor-pointer">
+                    <input type="checkbox" id="elem-visible" checked onchange="toggleElementVisible(this.checked)" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+                    <span data-i18n="lbl_elem_visible">Visible</span>
+                  </label>
+                </div>
               </div>
 
               <!-- Кнопки быстрого выбора элементов -->
               <div class="flex flex-wrap gap-1">
                 <button type="button" onclick="setActiveElement('accent_bar')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_bar">Accent Line</button>
-                <button type="button" onclick="setActiveElement('category_title')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_cat">Category</button>
+                <button type="button" onclick="setActiveElement('category_title')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_cat">Top Tag</button>
                 <button type="button" onclick="setActiveElement('name')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_name">First Name</button>
                 <button type="button" onclick="setActiveElement('surname')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_surname">Last Name</button>
                 <button type="button" onclick="setActiveElement('full_name')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_fio">Full Name</button>
@@ -514,12 +514,16 @@
                 <button type="button" onclick="setActiveElement('website')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_web">Website</button>
                 <button type="button" onclick="setActiveElement('qr_code')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_qr">QR</button>
               </div>
+
+              <!-- Пользовательские добавленные тексты (чипы) -->
+              <div id="custom-texts-button-bar" class="flex flex-wrap gap-1 mt-1 empty:hidden"></div>
             </div>
 
-            <!-- Настраиваемый текст (для категории/телефона/сайта) -->
-            <div id="category-text-wrap" class="hidden">
-              <label id="category-text-label" class="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Text</label>
-              <input type="text" id="category-text-input" oninput="setCategoryText(this.value)" class="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <!-- Настраиваемый текст (для верхней плашки / пользовательского текста / телефона / сайта) -->
+            <div id="category-text-wrap" class="hidden bg-white dark:bg-slate-800/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+              <label id="category-text-label" class="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">Text Content</label>
+              <input type="text" id="category-text-input" oninput="setCategoryText(this.value)" placeholder="e.g. VIP GUEST" class="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <p class="text-[10px] text-slate-400 dark:text-slate-500" id="category-text-hint">Instant live update on badge</p>
             </div>
 
             <!-- Настройки содержимого QR-кода -->
@@ -579,7 +583,7 @@
                 <span id="label-size-title" data-i18n="lbl_size_font">Font Size</span>
                 <span id="label-size-val" class="text-slate-800 dark:text-slate-200">24 px</span>
               </label>
-              <input type="range" id="slider-size" min="10" max="42" value="24" oninput="setElementSize(this.value)" class="w-full">
+              <input type="range" id="slider-size" min="8" max="48" value="24" oninput="setElementSize(this.value)" class="w-full">
             </div>
 
             <!-- Цвет текста и плашки -->
@@ -592,6 +596,14 @@
                 <span class="text-xs text-slate-600 dark:text-slate-300" data-i18n="lbl_bg_badge">Pill Background:</span>
                 <input type="color" id="elem-bg-picker" value="#F1F5F9" onchange="setElementBgColor(this.value)" class="w-7 h-7 rounded cursor-pointer border border-slate-300 dark:border-slate-600">
               </div>
+            </div>
+
+            <!-- Кнопка удаления пользовательского текста (только для кастомных надписей) -->
+            <div id="delete-custom-text-wrap" class="hidden pt-2 border-t border-slate-200 dark:border-slate-700">
+              <button type="button" onclick="deleteActiveCustomText()" class="w-full py-1.5 px-3 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-950/70 text-red-600 dark:text-red-400 text-xs font-bold rounded-lg border border-red-200 dark:border-red-800 transition flex items-center justify-center space-x-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span data-i18n="btn_delete_custom_text">Delete this text from layout</span>
+              </button>
             </div>
           </div>
 
@@ -700,7 +712,7 @@
         bld_sec2_title: "2. Элемент: ",
         lbl_elem_visible: "Виден",
         btn_elem_bar: "Линия",
-        btn_elem_cat: "Категория",
+        btn_elem_cat: "Верхняя плашка",
         btn_elem_name: "Имя",
         btn_elem_surname: "Фамилия",
         btn_elem_fio: "ФИО (строка)",
@@ -709,6 +721,13 @@
         btn_elem_phone: "Телефон",
         btn_elem_web: "Сайт",
         btn_elem_qr: "QR",
+        btn_add_text: "+ Добавить текст",
+        btn_delete_custom_text: "Удалить этот текст с макета",
+        lbl_top_tag_text: "Текст верхней плашки (Категория):",
+        lbl_custom_text_content: "Текст надписи:",
+        placeholder_top_tag: "Например: VIP GUEST, EVENT PASS, СПИКЕР",
+        placeholder_custom_text: "Например: VIP GUEST, ЗАЛ A, СТОЛ 5",
+        lbl_custom_text_chip: "Текст",
         lbl_pos_x: "Позиция X",
         lbl_pos_y: "Позиция Y",
         lbl_size_font: "Размер шрифта",
@@ -814,7 +833,7 @@
         bld_sec2_title: "2. Element: ",
         lbl_elem_visible: "Visible",
         btn_elem_bar: "Line",
-        btn_elem_cat: "Category",
+        btn_elem_cat: "Top Tag",
         btn_elem_name: "First Name",
         btn_elem_surname: "Last Name",
         btn_elem_fio: "Full Name",
@@ -823,6 +842,13 @@
         btn_elem_phone: "Phone",
         btn_elem_web: "Website",
         btn_elem_qr: "QR",
+        btn_add_text: "+ Add Text",
+        btn_delete_custom_text: "Delete this text from layout",
+        lbl_top_tag_text: "Top Tag (Category) Text:",
+        lbl_custom_text_content: "Text Content:",
+        placeholder_top_tag: "e.g., VIP GUEST, EVENT PASS, SPEAKER",
+        placeholder_custom_text: "e.g., VIP GUEST, HALL A, TABLE 5",
+        lbl_custom_text_chip: "Text",
         lbl_pos_x: "Position X",
         lbl_pos_y: "Position Y",
         lbl_size_font: "Font Size",
@@ -995,10 +1021,15 @@
     };
 
     function getElementTitle(key) {
+      if (key && (key.startsWith('custom_text_') || elemMap[key]?.isCustom)) {
+        const item = builderLayout[key];
+        const preview = item?.text ? ` "${item.text.length > 15 ? item.text.slice(0, 15) + '…' : item.text}"` : '';
+        return currentLang === 'ru' ? `Свой текст${preview}` : `Custom Text${preview}`;
+      }
       const titles = {
         ru: {
           accent_bar: 'Верхняя линия',
-          category_title: 'Категория / Заголовок',
+          category_title: 'Верхняя плашка (Категория)',
           name: 'Имя',
           surname: 'Фамилия',
           full_name: 'ФИО (одна строка)',
@@ -1010,7 +1041,7 @@
         },
         en: {
           accent_bar: 'Accent Line',
-          category_title: 'Category / Header',
+          category_title: 'Top Tag (Category)',
           name: 'First Name',
           surname: 'Last Name',
           full_name: 'Full Name',
@@ -1126,7 +1157,7 @@
       document.getElementById('badge-name').innerText = tplName;
       
       const catInput = document.getElementById('category-title');
-      if (defaultCategory !== undefined) {
+      if (catInput && defaultCategory !== undefined) {
         catInput.value = defaultCategory || '';
       }
 
@@ -1162,6 +1193,9 @@
     }
 
     // ================== BUILDER MODAL LOGIC ==================
+    // ================== BUILDER MODAL LOGIC ==================
+    let customTextCounter = 0;
+
     function openBuilderModal() {
       document.getElementById('builder-modal').classList.remove('hidden');
       document.getElementById('name-error-msg').classList.add('hidden');
@@ -1181,11 +1215,208 @@
         document.getElementById('item-website').innerText = cleanW;
       }
 
-      setActiveElement('name');
+      // Если выбран кастомный шаблон, загружаем его настройки и тексты
+      const curTpl = cachedTemplates.find(t => t.id === selectedTemplate);
+      if (curTpl && curTpl.is_custom && curTpl.layout) {
+        loadTemplateLayoutIntoBuilder(curTpl);
+      } else if (curTpl && !curTpl.is_custom) {
+        // Базовый шаблон: очищаем кастомные тексты и инициализируем
+        clearBuilderCustomTexts();
+        builderLayout.category_title.text = curTpl.category_title || 'EVENT PASS';
+        document.getElementById('item-category').innerText = builderLayout.category_title.text;
+        updateBgColor(curTpl.bg_color || '#FFFFFF');
+      }
+
+      setActiveElement('category_title');
     }
 
     function closeBuilderModal() {
       document.getElementById('builder-modal').classList.add('hidden');
+    }
+
+    function clearBuilderCustomTexts() {
+      document.querySelectorAll('[id^="item-custom_text_"]').forEach(el => el.remove());
+      if (builderLayout.custom_texts) {
+        builderLayout.custom_texts.forEach(t => {
+          delete elemMap[t.id];
+          delete builderLayout[t.id];
+        });
+      }
+      builderLayout.custom_texts = [];
+      renderCustomTextButtons();
+    }
+
+    function loadTemplateLayoutIntoBuilder(tpl) {
+      if (!tpl || !tpl.layout) return;
+      const l = tpl.layout;
+
+      clearBuilderCustomTexts();
+
+      if (tpl.bg_image) {
+        const canvas = document.getElementById('badge-canvas');
+        canvas.style.backgroundImage = `url('${tpl.preview_url}?t=${Date.now()}')`;
+        document.getElementById('canvas-accent-bar').classList.add('hidden');
+        builderLayout.accent_bar.visible = false;
+      } else {
+        updateBgColor(tpl.bg_color || '#FFFFFF');
+      }
+
+      // Восстанавливаем базовые элементы
+      Object.keys(l).forEach(key => {
+        if (key === 'custom_texts' || key.startsWith('custom_text_')) return;
+        if (builderLayout[key] && l[key]) {
+          Object.assign(builderLayout[key], l[key]);
+          const meta = elemMap[key];
+          const el = document.getElementById(meta?.id);
+          if (el && !meta.isBar) {
+            if (l[key].x !== undefined) el.style.left = `${l[key].x}px`;
+            if (l[key].y !== undefined) el.style.top = `${l[key].y}px`;
+            if (l[key].size !== undefined) {
+              if (meta.isQr) { el.style.width = `${l[key].size}px`; el.style.height = `${l[key].size}px`; }
+              else { el.style.fontSize = `${l[key].size}px`; }
+            }
+            if (l[key].color) el.style.color = l[key].color;
+            if (l[key].bg) el.style.backgroundColor = l[key].bg;
+            if (l[key].visible === false) el.classList.add('hidden');
+            else el.classList.remove('hidden');
+          }
+        }
+      });
+
+      if (l.category_title?.text) {
+        builderLayout.category_title.text = l.category_title.text;
+        document.getElementById('item-category').innerText = l.category_title.text;
+      }
+
+      // Восстанавливаем пользовательские тексты
+      const customList = l.custom_texts || [];
+      customList.forEach(item => {
+        addNewCustomText(item);
+      });
+      Object.keys(l).forEach(k => {
+        if (k.startsWith('custom_text_') && !customList.some(ct => ct.id === k)) {
+          addNewCustomText(l[k]);
+        }
+      });
+
+      renderCustomTextButtons();
+    }
+
+    function renderCustomTextButtons() {
+      const container = document.getElementById('custom-texts-button-bar');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const list = builderLayout.custom_texts || [];
+      list.forEach((item, idx) => {
+        const key = item.id;
+        const isActive = (activeElementKey === key);
+        const btn = document.createElement('div');
+        btn.className = `flex items-center space-x-1 px-2 py-0.5 text-[11px] font-semibold rounded border transition ${
+          isActive 
+            ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+            : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-950/70'
+        }`;
+        
+        const preview = item.text ? (item.text.length > 12 ? item.text.slice(0, 10) + '…' : item.text) : `${i18n[currentLang]?.lbl_custom_text_chip || 'Text'} ${idx + 1}`;
+        btn.innerHTML = `
+          <button type="button" onclick="setActiveElement('${key}')" class="truncate max-w-[85px]" title="${item.text || ''}">T: ${preview}</button>
+          <button type="button" onclick="event.stopPropagation(); deleteCustomTextByKey('${key}')" class="hover:text-red-400 ml-1 text-[11px] font-bold" title="Delete">✕</button>
+        `;
+        container.appendChild(btn);
+      });
+    }
+
+    function addNewCustomText(initialData = null) {
+      customTextCounter++;
+      const key = initialData?.id || `custom_text_${customTextCounter}`;
+      
+      const currentBg = document.getElementById('badge-canvas').style.backgroundColor || '#FFFFFF';
+      const isDark = isDarkColor(currentBg);
+      const defaultColor = isDark ? '#F8FAFC' : '#0F172A';
+
+      const textConf = {
+        id: key,
+        text: initialData?.text !== undefined ? initialData.text : (currentLang === 'ru' ? `Текст ${customTextCounter}` : `Text ${customTextCounter}`),
+        x: initialData?.x !== undefined ? parseInt(initialData.x) : 28,
+        y: initialData?.y !== undefined ? parseInt(initialData.y) : (170 + ((customTextCounter - 1) * 22) % 85),
+        size: initialData?.size !== undefined ? parseInt(initialData.size) : 13,
+        color: initialData?.color || defaultColor,
+        weight: initialData?.weight || 'Bold',
+        visible: initialData?.visible !== false,
+        isCustom: true
+      };
+
+      if (!builderLayout.custom_texts) builderLayout.custom_texts = [];
+      const existingIdx = builderLayout.custom_texts.findIndex(t => t.id === key);
+      if (existingIdx >= 0) {
+        builderLayout.custom_texts[existingIdx] = textConf;
+      } else {
+        builderLayout.custom_texts.push(textConf);
+      }
+      builderLayout[key] = textConf;
+
+      elemMap[key] = {
+        id: `item-${key}`,
+        isBox: false,
+        isQr: false,
+        isBar: false,
+        hasCustomText: true,
+        isCustom: true
+      };
+
+      let domEl = document.getElementById(`item-${key}`);
+      if (!domEl) {
+        domEl = document.createElement('div');
+        domEl.id = `item-${key}`;
+        domEl.className = 'draggable-item font-bold leading-tight select-none';
+        document.getElementById('badge-canvas').appendChild(domEl);
+        attachDragListeners(domEl, key);
+        domEl.addEventListener('dblclick', () => {
+          setActiveElement(key);
+          const txtInput = document.getElementById('category-text-input');
+          if (txtInput) { txtInput.focus(); txtInput.select(); }
+        });
+      }
+
+      domEl.style.left = `${textConf.x}px`;
+      domEl.style.top = `${textConf.y}px`;
+      domEl.style.fontSize = `${textConf.size}px`;
+      domEl.style.color = textConf.color;
+      domEl.innerText = textConf.text;
+      if (!textConf.visible) domEl.classList.add('hidden');
+      else domEl.classList.remove('hidden');
+
+      renderCustomTextButtons();
+      setActiveElement(key);
+
+      const txtInput = document.getElementById('category-text-input');
+      if (txtInput && !initialData) {
+        txtInput.focus();
+        txtInput.select();
+      }
+    }
+
+    function deleteCustomTextByKey(key) {
+      const domEl = document.getElementById(`item-${key}`);
+      if (domEl) domEl.remove();
+
+      if (builderLayout.custom_texts) {
+        builderLayout.custom_texts = builderLayout.custom_texts.filter(t => t.id !== key);
+      }
+      delete builderLayout[key];
+      delete elemMap[key];
+
+      renderCustomTextButtons();
+      if (activeElementKey === key) {
+        setActiveElement('category_title');
+      }
+    }
+
+    function deleteActiveCustomText() {
+      if (activeElementKey && (activeElementKey.startsWith('custom_text_') || elemMap[activeElementKey]?.isCustom)) {
+        deleteCustomTextByKey(activeElementKey);
+      }
     }
 
     async function uploadBackgroundImage(input) {
@@ -1287,6 +1518,15 @@
       document.getElementById('item-date').style.backgroundColor = tagBg;
       document.getElementById('item-date').style.color = dark ? '#F1F5F9' : '#334155';
 
+      // Обновляем цвет всех добавленных пользовательских надписей
+      if (builderLayout.custom_texts) {
+        builderLayout.custom_texts.forEach(item => {
+          item.color = textPrimary;
+          const dom = document.getElementById(`item-${item.id}`);
+          if (dom) dom.style.color = textPrimary;
+        });
+      }
+
       const conf = builderLayout[activeElementKey];
       if (conf) {
         document.getElementById('elem-color-picker').value = conf.color || '#0F172A';
@@ -1321,6 +1561,7 @@
       activeElementKey = key;
       const meta = elemMap[key];
       const conf = builderLayout[key];
+      if (!meta || !conf) return;
 
       document.querySelectorAll('.draggable-item').forEach(el => el.classList.remove('active-element'));
       const activeEl = document.getElementById(meta.id);
@@ -1334,6 +1575,12 @@
       const sizeSlider = document.getElementById('slider-size');
       const colorLabel = document.getElementById('elem-color-label');
       const qrFieldsWrap = document.getElementById('qr-fields-wrap');
+      const deleteTextWrap = document.getElementById('delete-custom-text-wrap');
+
+      if (deleteTextWrap) {
+        if (meta.isCustom) deleteTextWrap.classList.remove('hidden');
+        else deleteTextWrap.classList.add('hidden');
+      }
 
       if (meta.isBar) {
         if (coordsWrap) coordsWrap.classList.add('hidden');
@@ -1379,7 +1626,7 @@
 
         sizeTitle.innerText = i18n[currentLang]?.lbl_size_font || 'Font Size';
         sizeSlider.min = 8;
-        sizeSlider.max = 38;
+        sizeSlider.max = 48;
         sizeSlider.value = conf.size;
         document.getElementById('label-size-val').innerText = `${conf.size} px`;
         if (colorLabel) colorLabel.innerText = i18n[currentLang]?.lbl_color_text || 'Text Color:';
@@ -1395,21 +1642,46 @@
         bgPickerWrap.classList.add('hidden');
       }
 
-      // Текст надписи (для категории/телефона/сайта)
+      // Текст надписи (для категории / пользовательского текста / телефона / сайта)
       const catTextWrap = document.getElementById('category-text-wrap');
       const catTextLabel = document.getElementById('category-text-label');
+      const catTextInput = document.getElementById('category-text-input');
+      const catTextHint = document.getElementById('category-text-hint');
+
       if (meta.hasCustomText) {
         catTextWrap.classList.remove('hidden');
-        if (catTextLabel) catTextLabel.innerText = `${i18n[currentLang]?.lbl_category || 'Text'} (${getElementTitle(key)})`;
-        document.getElementById('category-text-input').value = conf.text || '';
+        if (key === 'category_title') {
+          catTextLabel.innerText = i18n[currentLang]?.lbl_top_tag_text || 'Top Tag (Category) Text:';
+          catTextInput.placeholder = i18n[currentLang]?.placeholder_top_tag || 'e.g. VIP GUEST, EVENT PASS';
+          if (catTextHint) catTextHint.innerText = currentLang === 'ru' ? 'Текст верхней плашки на бейдже' : 'Header text displayed on top of badge';
+        } else if (meta.isCustom) {
+          catTextLabel.innerText = i18n[currentLang]?.lbl_custom_text_content || 'Custom Text Content:';
+          catTextInput.placeholder = i18n[currentLang]?.placeholder_custom_text || 'e.g. VIP GUEST, SPEAKER, HALL A';
+          if (catTextHint) catTextHint.innerText = currentLang === 'ru' ? 'Произвольная надпись на бейдже' : 'Arbitrary text line on the badge';
+        } else if (key === 'phone') {
+          catTextLabel.innerText = i18n[currentLang]?.lbl_phone || 'Phone Number:';
+          catTextInput.placeholder = '+1 (555) 000-0000';
+          if (catTextHint) catTextHint.innerText = '';
+        } else if (key === 'website') {
+          catTextLabel.innerText = i18n[currentLang]?.lbl_website || 'Website Link:';
+          catTextInput.placeholder = 'mycompany.com';
+          if (catTextHint) catTextHint.innerText = '';
+        }
+        catTextInput.value = conf.text || '';
       } else {
         catTextWrap.classList.add('hidden');
       }
+
+      renderCustomTextButtons();
     }
 
     function setCategoryText(text) {
+      if (!builderLayout[activeElementKey]) return;
       builderLayout[activeElementKey].text = text;
-      const el = document.getElementById(elemMap[activeElementKey].id);
+      const meta = elemMap[activeElementKey];
+      const el = document.getElementById(meta?.id);
+      if (!el) return;
+
       if (activeElementKey === 'category_title') {
         el.innerText = text || ' ';
       } else if (activeElementKey === 'phone') {
@@ -1418,6 +1690,9 @@
         el.innerText = clean ? ((clean.toLowerCase().startsWith('тел') || clean.toLowerCase().startsWith('tel')) ? clean : `${prefix}${clean}`) : ' ';
       } else if (activeElementKey === 'website') {
         el.innerText = text || ' ';
+      } else if (meta.isCustom) {
+        el.innerText = text || (currentLang === 'ru' ? 'Текст' : 'Text');
+        renderCustomTextButtons();
       }
     }
 
@@ -1498,31 +1773,36 @@
     let dragElemStartLeft = 0, dragElemStartTop = 0;
     let draggedKey = null;
 
+    function startDrag(clientX, clientY, key) {
+      isDragging = true;
+      draggedKey = key;
+      setActiveElement(key);
+
+      const el = document.getElementById(elemMap[key]?.id);
+      if (!el) return;
+      dragStartX = clientX;
+      dragStartY = clientY;
+      dragElemStartLeft = parseInt(el.style.left) || 0;
+      dragElemStartTop = parseInt(el.style.top) || 0;
+    }
+
+    function attachDragListeners(el, key) {
+      if (!el) return;
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startDrag(e.clientX, e.clientY, key);
+      });
+      el.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        startDrag(touch.clientX, touch.clientY, key);
+      }, { passive: false });
+    }
+
+    // Инициализируем drag-слушатели для всех предустановленных элементов
     Object.keys(elemMap).forEach(key => {
       if (key === 'accent_bar') return;
       const el = document.getElementById(elemMap[key].id);
-      if (!el) return;
-
-      const startDrag = (clientX, clientY) => {
-        isDragging = true;
-        draggedKey = key;
-        setActiveElement(key);
-
-        dragStartX = clientX;
-        dragStartY = clientY;
-        dragElemStartLeft = parseInt(el.style.left) || 0;
-        dragElemStartTop = parseInt(el.style.top) || 0;
-      };
-
-      el.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        startDrag(e.clientX, e.clientY);
-      });
-
-      el.addEventListener('touchstart', (e) => {
-        const touch = e.touches[0];
-        startDrag(touch.clientX, touch.clientY);
-      });
+      if (el) attachDragListeners(el, key);
     });
 
     const moveDrag = (clientX, clientY) => {
@@ -1794,7 +2074,7 @@
 
       const eventDate = encodeURIComponent(document.getElementById('event-date').value.trim());
       const isPdf = document.getElementById('is-pdf').checked;
-      const categoryTitleValue = document.getElementById('category-title').value;
+      const categoryTitleValue = document.getElementById('category-title')?.value;
       const phoneVal = document.getElementById('contact-phone').value.trim();
       const websiteVal = document.getElementById('contact-website').value.trim();
 
@@ -1808,10 +2088,8 @@
 
       try {
         let url = `/api/create_card?template=${selectedTemplate}&event_date=${eventDate}&is_pdf=${isPdf}`;
-        if (categoryTitleValue !== '') {
+        if (categoryTitleValue && categoryTitleValue.trim() !== '') {
           url += `&category_title=${encodeURIComponent(categoryTitleValue.trim())}`;
-        } else {
-          url += `&category_title=`;
         }
         if (phoneVal) {
           url += `&phone=${encodeURIComponent(phoneVal)}`;

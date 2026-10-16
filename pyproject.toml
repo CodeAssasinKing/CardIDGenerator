@@ -1,15 +1,17 @@
 [project]
-name = "new-project"
-version = "0.1.0"
-requires-python = ">=3.14"
+name = "badge-qr-maker"
+version = "1.0.0"
+description = "High-performance Badge & QR Code Maker with interactive designer, Taskiq workers, and A4 printable sheets"
+readme = "README.md"
+requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.143.1",
-    "pillow>=12.3.0",
-    "pydantic>=2.14.1",
-    "qrcode[pil]>=8.2",
-    "taskiq[reload]>=0.13.0",
+    "fastapi[standard]>=0.115.0",
+    "pillow>=10.0.0",
+    "pydantic>=2.0.0",
+    "qrcode[pil]>=7.4.2",
+    "taskiq[reload]>=0.11.0",
     "taskiq-nats>=0.7.0",
-    "uvicorn>=0.54.0",
-    "python-multipart>=0.0.32",
-    "openpyxl>=3.1.5",
+    "uvicorn>=0.30.0",
+    "python-multipart>=0.0.9",
+    "openpyxl>=3.1.0",
 ]

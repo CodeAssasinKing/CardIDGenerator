@@ -1,0 +1,53 @@
+services:
+  # NATS Message Broker with JetStream enabled
+  nats:
+    image: nats:latest
+    container_name: badge_nats
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8222/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Web Application & Interactive UI
+  web:
+    build: .
+    container_name: badge_web
+    command: python main.py
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    volumes:
+      - shared_templates:/app/templates
+    depends_on:
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Taskiq Distributed Background Worker
+  worker:
+    build: .
+    container_name: badge_worker
+    command: taskiq worker config.tasiq:broker tasks.index_card
+    environment:
+      - NATS_URL=nats://nats:4222
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - shared_templates:/app/templates
+    depends_on:
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  nats_data:
+  shared_templates:

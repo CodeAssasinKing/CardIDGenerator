@@ -248,6 +248,8 @@ def get_templates_list() -> List[Dict[str, Any]]:
             "category_title": c_data.get("layout", {}).get("category_title", {}).get("text", "EVENT PASS"),
             "preview_url": f"/api/templates/{c_id}/preview",
             "is_custom": True,
+            "layout": c_data.get("layout", {}),
+            "bg_image": c_data.get("bg_image"),
         })
 
     return result
@@ -533,6 +535,35 @@ def render_template_badge(
                     fill=qr_light,
                 )
             card.paste(qr_img, (qr_x, qr_y))
+
+        # 8. Пользовательские произвольные тексты (Custom Texts)
+        custom_texts = layout.get("custom_texts", [])
+        if not isinstance(custom_texts, list):
+            custom_texts = []
+
+        # Также считываем из словаря layout, если они сохранены как ключи custom_text_... или text_...
+        for k, v in layout.items():
+            if (k.startswith("custom_text") or k.startswith("text_")) and isinstance(v, dict):
+                if not any(isinstance(ct, dict) and ct.get("id") == k for ct in custom_texts):
+                    custom_texts.append(v)
+
+        for c_txt in custom_texts:
+            if not isinstance(c_txt, dict) or not c_txt.get("visible", True):
+                continue
+            raw_t = (c_txt.get("text") or "").strip()
+            if not raw_t:
+                continue
+
+            t_size = int(c_txt.get("size", 14))
+            t_color = c_txt.get("color", "#0F172A")
+            t_x = int(c_txt.get("x", 28))
+            t_y = int(c_txt.get("y", 180))
+            t_weight = c_txt.get("weight", "Bold")
+            if t_weight not in ("Bold", "SemiBold", "Medium", "Regular"):
+                t_weight = "Bold"
+
+            font_custom = get_font(t_weight, size=t_size)
+            draw.text((t_x, t_y), raw_t, font=font_custom, fill=t_color)
 
         return card
 

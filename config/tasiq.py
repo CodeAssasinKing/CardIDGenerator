@@ -1,9 +1,12 @@
+import os
 from taskiq_nats import PullBasedJetStreamBroker
+
+NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
 
 # PullBasedJetStreamBroker позволяет нескольким воркерам (worker-0, worker-1)
 # параллельно забирать задачи из одного стрима без конфликта 'consumer name already in use'.
 broker = PullBasedJetStreamBroker(
-    servers=["nats://localhost:4222"],
+    servers=[NATS_URL],
     subject="taskiq_tasks",
     stream_name="taskiq_jetstream",
     durable="taskiq_durable",
