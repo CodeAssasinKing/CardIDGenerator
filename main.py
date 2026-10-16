@@ -48,9 +48,12 @@ app = FastAPI(
 )
 
 
-@app.get("/")
+from fastapi.responses import FileResponse
+
+
+@app.get("/", summary="Главная страница (веб-интерфейс)")
 async def root():
-    return {"message": "Hello World"}
+    return FileResponse("static/index.html")
 
 
 app.include_router(router=main_routes)

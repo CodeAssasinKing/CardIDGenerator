@@ -7,7 +7,9 @@ dependencies = [
     "pillow>=12.3.0",
     "pydantic>=2.14.1",
     "qrcode[pil]>=8.2",
-    "taskiq>=0.13.0",
+    "taskiq[reload]>=0.13.0",
     "taskiq-nats>=0.7.0",
     "uvicorn>=0.54.0",
+    "python-multipart>=0.0.32",
+    "openpyxl>=3.1.5",
 ]

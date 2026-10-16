@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Badge & QR Maker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Montserrat', sans-serif; }
+    .template-card:hover { transform: translateY(-4px); }
+    .draggable-item {
+      position: absolute;
+      user-select: none;
+      touch-action: none;
+      cursor: grab;
+      border: 1px dashed transparent;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .draggable-item:active { cursor: grabbing; }
+    .draggable-item.active-element {
+      border-color: #2563EB !important;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+    }
+  </style>
+  <script>
+    // Первоначальная инициализация темы для предотвращения мерцания (FOUC)
+    (function() {
+      const savedTheme = localStorage.getItem('badge_theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+  <!-- Header -->
+  <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40 transition-colors duration-200">
+    <div class="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-blue-500/20">
+          Q
+        </div>
+        <div>
+          <h1 class="font-extrabold text-xl text-slate-900 dark:text-white leading-tight" data-i18n="app_title">Badge & QR Maker</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400" data-i18n="app_subtitle">Badge generator & printable A4 sheets</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <!-- Языковой переключатель (RU / EN) -->
+        <div class="flex items-center bg-slate-100 dark:bg-slate-700 p-0.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-bold">
+          <button type="button" id="lang-btn-en" onclick="setLanguage('en')" class="px-2.5 py-1 rounded-lg transition">EN</button>
+          <button type="button" id="lang-btn-ru" onclick="setLanguage('ru')" class="px-2.5 py-1 rounded-lg transition">RU</button>
+        </div>
+
+        <!-- Переключатель темы (Dark / Light) -->
+        <button type="button" id="theme-toggle-btn" onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 transition" title="Toggle Theme">
+          <!-- Иконка подставляется JS -->
+        </button>
+
+        <!-- Кнопки действий -->
+        <input type="file" id="direct-bg-input" accept="image/*" class="hidden" onchange="handleDirectBgUpload(this)">
+        <button onclick="triggerDirectUpload()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center space-x-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          <span data-i18n="btn_upload_tpl">Upload custom template</span>
+        </button>
+        <button onclick="openBuilderModal()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 border border-slate-200 dark:border-slate-600">
+          <span data-i18n="btn_builder">Card Builder</span>
+        </button>
+        <a href="/docs" target="_blank" class="hidden sm:inline-block text-xs font-semibold text-slate-600 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 bg-slate-50 dark:bg-slate-700/60 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 transition">
+          Swagger API &rarr;
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
+
+    <!-- Step 1: Выбор стиля бейджа -->
+    <section>
+      <div class="flex items-end justify-between mb-4">
+        <div>
+          <div class="inline-block px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 text-xs font-bold rounded-md uppercase tracking-wider mb-1" data-i18n="step1_tag">Step 1</div>
+          <h2 class="text-2xl font-bold text-slate-900 dark:text-white" data-i18n="step1_title">Choose Badge Style</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400" data-i18n="step1_desc">Choose a ready-made style, upload your background, or design in the builder</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="triggerDirectUpload()" class="text-xs font-bold text-indigo-700 hover:text-indigo-800 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/70 px-3.5 py-2 rounded-xl border border-indigo-200 dark:border-indigo-800 transition flex items-center space-x-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            <span data-i18n="btn_upload_layout">Upload template</span>
+          </button>
+          <button onclick="openBuilderModal()" class="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-3.5 py-2 rounded-xl border border-blue-200 dark:border-blue-800 transition" data-i18n="btn_add_builder">
+            + Card Builder
+          </button>
+        </div>
+      </div>
+
+      <!-- Сетка шаблонов -->
+      <div id="templates-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="p-8 text-center text-slate-400 dark:text-slate-500 col-span-full" data-i18n="tpl_loading">Loading templates...</div>
+      </div>
+    </section>
+
+    <!-- Step 2 & 3: Параметры и Участники -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- Левая колонка: Настройки события -->
+      <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+        <div>
+          <div class="inline-block px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 text-xs font-bold rounded-md uppercase tracking-wider mb-1" data-i18n="step2_tag">Step 2</div>
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white" data-i18n="step2_title">Parameters</h2>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1" data-i18n="lbl_category">
+            Header / Category Tag
+          </label>
+          <input type="text" id="category-title" placeholder="e.g., EVENT PASS (or blank)" data-i18n-placeholder="placeholder_category"
+                 class="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5" data-i18n="hint_category">Leave blank to hide.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1" data-i18n="lbl_date">Event Date</label>
+          <input type="text" id="event-date" value="15.11.2026" 
+                 class="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5" data-i18n="hint_date">Displayed on the badge without the word DATE: (or clear it)</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1" data-i18n="lbl_phone">
+            Phone Number (optional)
+          </label>
+          <input type="text" id="contact-phone" placeholder="e.g., +1 (555) 000-0000" data-i18n-placeholder="placeholder_phone"
+                 class="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5" data-i18n="hint_phone">Displayed on the card if provided.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1" data-i18n="lbl_website">
+            Website Link (optional)
+          </label>
+          <input type="text" id="contact-website" placeholder="e.g., company.com" data-i18n-placeholder="placeholder_website"
+                 class="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs">
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5" data-i18n="hint_website">Displayed on the card if provided.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1" data-i18n="lbl_bg_color">
+            Custom Card Background (optional)
+          </label>
+          <div class="flex items-center space-x-2.5">
+            <input type="color" id="card-bg-override" value="#FFFFFF" oninput="document.getElementById('card-bg-override-active').checked=true;" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 dark:border-slate-600 p-0">
+            <label class="flex items-center space-x-1.5 text-xs text-slate-700 dark:text-slate-300 font-semibold cursor-pointer select-none">
+              <input type="checkbox" id="card-bg-override-active" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+              <span data-i18n="chk_apply_bg">Apply custom background color</span>
+            </label>
+          </div>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5" data-i18n="hint_bg_color">Overrides the default template background color.</p>
+        </div>
+
+        <!-- Настройка верхней линии карточки -->
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider" data-i18n="lbl_accent_bar">
+              Top Accent Line
+            </label>
+            <label class="flex items-center space-x-1 text-xs text-slate-700 dark:text-slate-300 font-semibold cursor-pointer select-none">
+              <input type="checkbox" id="card-accent-visible" checked class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+              <span data-i18n="chk_accent_enabled">Enabled</span>
+            </label>
+          </div>
+          <div class="flex items-center space-x-2.5">
+            <input type="color" id="card-accent-color" value="#2563EB" oninput="document.getElementById('card-accent-override-active').checked=true;" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 dark:border-slate-600 p-0">
+            <label class="flex items-center space-x-1.5 text-xs text-slate-700 dark:text-slate-300 font-semibold cursor-pointer select-none">
+              <input type="checkbox" id="card-accent-override-active" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+              <span data-i18n="chk_accent_override">Custom line color</span>
+            </label>
+          </div>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500" data-i18n="hint_accent">Can be disabled or given a custom accent color.</p>
+        </div>
+
+        <!-- Настройка данных в QR-коде -->
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider" data-i18n="lbl_qr_data">
+              Data inside QR Code
+            </label>
+            <span class="text-[10px] text-slate-400 dark:text-slate-500" data-i18n="hint_qr_toggle">enable / disable</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <label class="flex items-center space-x-1.5 cursor-pointer">
+              <input type="checkbox" id="gen-qr-name" checked class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+              <span class="text-slate-700 dark:text-slate-300 font-medium" data-i18n="qr_fio">Full Name / Name</span>
+            </label>
+            <label class="flex items-center space-x-1.5 cursor-pointer">
+              <input type="checkbox" id="gen-qr-id" checked class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+              <span class="text-slate-700 dark:text-slate-300 font-medium" data-i18n="qr_id">Badge ID</span>
+            </label>
+            <label class="flex items-center space-x-1.5 cursor-pointer">
+              <input type="checkbox" id="gen-qr-date" checked class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+              <span class="text-slate-700 dark:text-slate-300 font-medium" data-i18n="qr_date">Date</span>
+            </label>
+            <label class="flex items-center space-x-1.5 cursor-pointer">
+              <input type="checkbox" id="gen-qr-phone" checked class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+              <span class="text-slate-700 dark:text-slate-300 font-medium" data-i18n="qr_phone">Phone</span>
+            </label>
+            <label class="flex items-center space-x-1.5 cursor-pointer col-span-2">
+              <input type="checkbox" id="gen-qr-website" checked class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+              <span class="text-slate-700 dark:text-slate-300 font-medium" data-i18n="qr_web">Website (direct link)</span>
+            </label>
+          </div>
+          <p class="text-[10px] text-slate-400 dark:text-slate-500 leading-tight" data-i18n="hint_qr_direct">
+            💡 If only website is selected, scanner immediately opens URL in browser.
+          </p>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+          <label class="flex items-start space-x-3 cursor-pointer select-none">
+            <input type="checkbox" id="is-pdf" checked class="mt-1 w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600 focus:ring-blue-500">
+            <div>
+              <span class="block text-xs font-bold text-slate-800 dark:text-slate-200" data-i18n="lbl_is_pdf">Generate printable PDF</span>
+              <span class="block text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5" data-i18n="hint_is_pdf">
+                Adds printable A4 sheets with cutting guidelines to ZIP
+              </span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Правая колонка: Список участников -->
+      <div class="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="inline-block px-2.5 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 text-xs font-bold rounded-md uppercase tracking-wider mb-1" data-i18n="step3_tag">Step 3</div>
+              <h2 class="text-xl font-bold text-slate-900 dark:text-white" data-i18n="step3_title">Attendee List</h2>
+            </div>
+            <span id="employee-count-badge" class="px-3 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold text-xs rounded-xl border border-blue-200 dark:border-blue-800">
+              Attendees: 3
+            </span>
+          </div>
+
+          <!-- Вкладки ввода сотрудников -->
+          <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">
+            <button id="tab-btn-text" type="button" onclick="switchEmpTab('text')" 
+                    class="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-blue-600 text-white transition flex items-center space-x-1.5 shadow-sm">
+              <span data-i18n="tab_text">📝 Text List</span>
+            </button>
+            <button id="tab-btn-excel" type="button" onclick="switchEmpTab('excel')" 
+                    class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition flex items-center space-x-1.5">
+              <span data-i18n="tab_excel">📊 Excel / CSV File</span>
+            </button>
+            <button id="tab-btn-json" type="button" onclick="switchEmpTab('json')" 
+                    class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition flex items-center space-x-1.5">
+              <span data-i18n="tab_json">⚙️ JSON (API)</span>
+            </button>
+          </div>
+
+          <!-- Вкладка 1: Простой список текстом -->
+          <div id="tab-content-text" class="space-y-2">
+            <div class="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
+              <span data-i18n="lbl_text_prompt">One person per line (Firstname Lastname):</span>
+              <button type="button" onclick="insertSampleText()" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold" data-i18n="btn_insert_sample">+ Insert example</button>
+            </div>
+            <textarea id="users-text" rows="7" oninput="syncFromText()"
+                      placeholder="Alexander Smith&#10;Elena Ivanova&#10;Michael Brown, +1 (555) 123-4567, mycompany.com" 
+                      class="w-full font-mono text-xs p-3.5 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 leading-relaxed"></textarea>
+          </div>
+
+          <!-- Вкладка 2: Загрузка Excel / CSV -->
+          <div id="tab-content-excel" class="hidden space-y-3">
+            <label id="excel-dropzone" 
+                   class="cursor-pointer border-2 border-dashed border-blue-300 dark:border-blue-700 hover:border-blue-500 dark:hover:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/80 dark:hover:bg-blue-950/40 rounded-2xl p-6 flex flex-col items-center justify-center text-center transition block">
+              <svg class="w-10 h-10 text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+              <span class="font-bold text-sm text-slate-800 dark:text-slate-200" data-i18n="dropzone_title">Drop Excel (.xlsx) or CSV file here</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400 mt-1" data-i18n="dropzone_desc">Supported columns: First Name, Last Name, Full Name, Phone, Website</span>
+              <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelUpload(this)">
+            </label>
+            <div id="excel-preview-box" class="hidden bg-slate-50 dark:bg-slate-900 rounded-xl p-3 border border-slate-200 dark:border-slate-700 space-y-2">
+              <div class="flex justify-between items-center">
+                <span id="excel-filename" class="font-bold text-xs text-slate-800 dark:text-slate-200"></span>
+                <span id="excel-parsed-count" class="text-xs font-bold text-blue-600 dark:text-blue-400"></span>
+              </div>
+              <div id="excel-table-preview" class="overflow-x-auto text-[11px] text-slate-600 dark:text-slate-300 max-h-32 overflow-y-auto"></div>
+            </div>
+          </div>
+
+          <!-- Вкладка 3: JSON -->
+          <div id="tab-content-json" class="hidden space-y-2">
+            <div class="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
+              <span data-i18n="lbl_json_prompt">JSON format for developers:</span>
+              <button type="button" onclick="formatJsonTextarea()" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold" data-i18n="btn_format_json">Format JSON</button>
+            </div>
+            <textarea id="users-json" rows="7" oninput="syncFromJson()"
+                      class="w-full font-mono text-xs p-3.5 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100"></textarea>
+          </div>
+        </div>
+
+        <!-- Кнопка запуска -->
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+          <span id="selected-template-badge" class="text-xs font-bold text-slate-500 dark:text-slate-400">
+            <span data-i18n="lbl_selected_tpl">Selected template: </span><span class="text-blue-600 dark:text-blue-400" id="badge-name">Classic Blue</span>
+          </span>
+          <button id="btn-generate" onclick="generateBadges()" 
+                  class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-500/25 transition flex items-center space-x-2">
+            <span data-i18n="btn_generate">Generate Badges</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Прогресс-бар генерации в реальном времени -->
+    <section id="progress-section" class="hidden bg-white dark:bg-slate-800 p-6 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-md">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 id="progress-status-title" class="text-base font-bold text-slate-900 dark:text-white" data-i18n="gen_in_progress">Generation in progress...</h3>
+          <p id="progress-subtitle" class="text-xs text-slate-500 dark:text-slate-400" data-i18n="gen_connecting">Connecting to background worker...</p>
+        </div>
+        <span id="progress-percentage" class="text-2xl font-black text-blue-600 dark:text-blue-400">0%</span>
+      </div>
+
+      <div class="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-4">
+        <div id="progress-bar-fill" class="h-full bg-blue-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+
+      <div id="download-box" class="hidden flex items-center justify-between bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-4 rounded-xl">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold">✓</div>
+          <div>
+            <h4 class="font-bold text-sm text-green-900 dark:text-green-200" data-i18n="gen_done_title">All Done!</h4>
+            <p class="text-xs text-green-700 dark:text-green-400" data-i18n="gen_done_desc">All cards and printable PDF assembled into ZIP archive.</p>
+          </div>
+        </div>
+        <a id="btn-download" href="#" class="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-xl shadow transition" data-i18n="btn_download_zip">
+          Download ZIP
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= МОДАЛЬНОЕ ОКНО: КОНСТРУКТОР БЕЙДЖА ================= -->
+  <div id="builder-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[95vh]">
+      
+      <!-- Шапка модалки -->
+      <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900 dark:text-white" data-i18n="modal_title">Custom Badge Builder</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400" data-i18n="modal_desc">Drag elements with mouse or fine-tune coordinates with sliders</p>
+        </div>
+        <button onclick="closeBuilderModal()" class="w-8 h-8 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 transition">✕</button>
+      </div>
+
+      <!-- Тело конструктора (Две колонки) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 overflow-y-auto">
+        
+        <!-- Левая часть: Интерактивный холст 450x300 -->
+        <div class="lg:col-span-7 flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div class="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wider flex items-center space-x-1.5" data-i18n="canvas_info">
+            Card 450 × 300 px • Click any element to configure
+          </div>
+
+          <!-- Сам холст бейджа -->
+          <div id="badge-canvas" 
+               class="relative w-[450px] h-[300px] bg-white rounded-xl shadow-lg border border-slate-300 dark:border-slate-700 overflow-hidden select-none"
+               style="background-color: #FFFFFF; background-size: cover; background-position: center;">
+            
+            <!-- Декоративная акцентная полоса -->
+            <div id="canvas-accent-bar" onclick="setActiveElement('accent_bar')" title="Configure accent bar"
+                 class="absolute top-0 left-0 w-full h-[6px] bg-blue-600 cursor-pointer hover:opacity-90 transition-all z-10"></div>
+
+            <!-- Блок 1: Категория -->
+            <div id="item-category" class="draggable-item font-semibold text-[11px]" 
+                 style="left: 28px; top: 26px; color: #64748B;">
+              EVENT PASS
+            </div>
+
+            <!-- Блок 2: Имя -->
+            <div id="item-name" class="draggable-item font-bold text-[24px] leading-tight" 
+                 style="left: 28px; top: 52px; color: #0F172A;">
+              Alexander
+            </div>
+
+            <!-- Блок 3: Фамилия -->
+            <div id="item-surname" class="draggable-item font-bold text-[24px] leading-tight" 
+                 style="left: 28px; top: 84px; color: #0F172A;">
+              Smith
+            </div>
+
+            <!-- Блок 3.1: ФИО в одну строку (скрыт по умолчанию) -->
+            <div id="item-fullname" class="draggable-item font-bold text-[22px] leading-tight hidden" 
+                 style="left: 28px; top: 68px; color: #0F172A;">
+              Alexander Smith
+            </div>
+
+            <!-- Блок 4: Плашка ID -->
+            <div id="item-id" class="draggable-item px-3 py-1 rounded-md text-[12px] font-semibold flex items-center" 
+                 style="left: 28px; top: 150px; background-color: #F1F5F9; color: #334155;">
+              ID #101
+            </div>
+
+            <!-- Блок 5: Плашка даты -->
+            <div id="item-date" class="draggable-item px-3 py-1 rounded-md text-[11px] font-medium flex items-center" 
+                 style="left: 115px; top: 150px; background-color: #F1F5F9; color: #334155;">
+              15.11.2026
+            </div>
+
+            <!-- Блок 5.1: Телефон -->
+            <div id="item-phone" class="draggable-item font-medium text-[10px]" 
+                 style="left: 28px; top: 204px; color: #64748B;">
+              Tel: +1 (555) 000-0000
+            </div>
+
+            <!-- Блок 5.2: Сайт -->
+            <div id="item-website" class="draggable-item font-medium text-[10px]" 
+                 style="left: 28px; top: 224px; color: #2563EB;">
+              mycompany.com
+            </div>
+
+            <!-- Блок 6: QR-код -->
+            <div id="item-qr" class="draggable-item p-1.5 rounded-lg border border-slate-200 bg-white" 
+                 style="left: 288px; top: 58px; width: 125px; height: 125px;">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Demo" class="w-full h-full pointer-events-none object-contain">
+            </div>
+
+          </div>
+
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-3 text-center" data-i18n="canvas_drag_tip">
+            💡 Drag any element across the card to reposition it.
+          </p>
+        </div>
+
+        <!-- Правая часть: Панель управления -->
+        <div class="lg:col-span-5 space-y-4">
+          
+          <!-- 1. Загрузка фона -->
+          <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <h3 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider" data-i18n="bld_sec1_title">1. Card Background</h3>
+            
+            <div class="flex items-center space-x-3">
+              <label class="cursor-pointer px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center space-x-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span data-i18n="btn_upload_img">Upload Image</span>
+                <input type="file" id="bg-upload-input" accept="image/*" class="hidden" onchange="uploadBackgroundImage(this)">
+              </label>
+              <button type="button" onclick="clearCustomBg()" class="text-xs text-red-500 hover:text-red-700 font-semibold" data-i18n="btn_reset_bg">Reset Background</button>
+            </div>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500" data-i18n="hint_auto_crop">Automatic smart fit/crop to 3:2 aspect ratio (450×300).</p>
+
+            <div class="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-300" data-i18n="lbl_bld_bg_color">Card Background Color:</span>
+                <span id="bg-hex-label" class="text-xs font-mono font-semibold text-slate-600 dark:text-slate-400">#FFFFFF</span>
+              </div>
+              
+              <!-- Быстрые палитры цветов -->
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="updateBgColor('#FFFFFF')" title="White" class="w-7 h-7 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white hover:scale-110 transition shadow-sm"></button>
+                <button type="button" onclick="updateBgColor('#0F172A')" title="Navy VIP (#0F172A)" class="w-7 h-7 rounded-lg border-2 border-slate-400 bg-[#0F172A] hover:scale-110 transition shadow-sm"></button>
+                <button type="button" onclick="updateBgColor('#18181B')" title="Graphite (#18181B)" class="w-7 h-7 rounded-lg border-2 border-slate-400 bg-[#18181B] hover:scale-110 transition shadow-sm"></button>
+                <button type="button" onclick="updateBgColor('#1E3A8A')" title="Classic Blue (#1E3A8A)" class="w-7 h-7 rounded-lg border-2 border-blue-400 bg-[#1E3A8A] hover:scale-110 transition shadow-sm"></button>
+                <button type="button" onclick="updateBgColor('#064E3B')" title="Emerald (#064E3B)" class="w-7 h-7 rounded-lg border-2 border-emerald-400 bg-[#064E3B] hover:scale-110 transition shadow-sm"></button>
+                <button type="button" onclick="updateBgColor('#4C1D95')" title="Purple (#4C1D95)" class="w-7 h-7 rounded-lg border-2 border-purple-400 bg-[#4C1D95] hover:scale-110 transition shadow-sm"></button>
+                <button type="button" onclick="updateBgColor('#F1F5F9')" title="Light Gray (#F1F5F9)" class="w-7 h-7 rounded-lg border-2 border-slate-300 bg-[#F1F5F9] hover:scale-110 transition shadow-sm"></button>
+
+                <!-- Пипетка и свой HEX -->
+                <div class="flex items-center space-x-1.5 pl-2 border-l border-slate-200 dark:border-slate-700">
+                  <input type="color" id="bg-color-picker" value="#FFFFFF" oninput="updateBgColor(this.value)" onchange="updateBgColor(this.value)" class="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 dark:border-slate-600 p-0">
+                  <input type="text" id="bg-hex-input" value="#FFFFFF" placeholder="#FFFFFF" maxlength="7" oninput="if(this.value.length>=4) updateBgColor(this.value)" class="w-20 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg font-mono text-xs uppercase focus:ring-1 focus:ring-blue-500">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Настройка выбранного элемента -->
+          <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  <span data-i18n="bld_sec2_title">2. Element: </span><span id="current-element-title" class="text-blue-600 dark:text-blue-400">First Name</span>
+                </h3>
+                <label class="flex items-center space-x-1.5 text-xs font-semibold cursor-pointer">
+                  <input type="checkbox" id="elem-visible" checked onchange="toggleElementVisible(this.checked)" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+                  <span data-i18n="lbl_elem_visible">Visible</span>
+                </label>
+              </div>
+
+              <!-- Кнопки быстрого выбора элементов -->
+              <div class="flex flex-wrap gap-1">
+                <button type="button" onclick="setActiveElement('accent_bar')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_bar">Accent Line</button>
+                <button type="button" onclick="setActiveElement('category_title')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_cat">Category</button>
+                <button type="button" onclick="setActiveElement('name')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_name">First Name</button>
+                <button type="button" onclick="setActiveElement('surname')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_surname">Last Name</button>
+                <button type="button" onclick="setActiveElement('full_name')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_fio">Full Name</button>
+                <button type="button" onclick="setActiveElement('id_badge')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_id">ID</button>
+                <button type="button" onclick="setActiveElement('date')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_date">Date</button>
+                <button type="button" onclick="setActiveElement('phone')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_phone">Phone</button>
+                <button type="button" onclick="setActiveElement('website')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_web">Website</button>
+                <button type="button" onclick="setActiveElement('qr_code')" class="px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" data-i18n="btn_elem_qr">QR</button>
+              </div>
+            </div>
+
+            <!-- Настраиваемый текст (для категории/телефона/сайта) -->
+            <div id="category-text-wrap" class="hidden">
+              <label id="category-text-label" class="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">Text</label>
+              <input type="text" id="category-text-input" oninput="setCategoryText(this.value)" class="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <!-- Настройки содержимого QR-кода -->
+            <div id="qr-fields-wrap" class="hidden bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300" data-i18n="lbl_qr_data">Data inside QR Code:</span>
+                <span class="text-[10px] text-blue-600 dark:text-blue-400 font-bold" id="qr-fields-count">5 selected</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <label class="flex items-center space-x-1.5 cursor-pointer">
+                  <input type="checkbox" id="builder-qr-name" checked onchange="toggleBuilderQrField('name', this.checked)" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+                  <span class="text-slate-700 dark:text-slate-300" data-i18n="qr_fio">Full Name / Name</span>
+                </label>
+                <label class="flex items-center space-x-1.5 cursor-pointer">
+                  <input type="checkbox" id="builder-qr-id" checked onchange="toggleBuilderQrField('id', this.checked)" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+                  <span class="text-slate-700 dark:text-slate-300" data-i18n="qr_id">Badge ID</span>
+                </label>
+                <label class="flex items-center space-x-1.5 cursor-pointer">
+                  <input type="checkbox" id="builder-qr-date" checked onchange="toggleBuilderQrField('date', this.checked)" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+                  <span class="text-slate-700 dark:text-slate-300" data-i18n="qr_date">Date</span>
+                </label>
+                <label class="flex items-center space-x-1.5 cursor-pointer">
+                  <input type="checkbox" id="builder-qr-phone" checked onchange="toggleBuilderQrField('phone', this.checked)" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+                  <span class="text-slate-700 dark:text-slate-300" data-i18n="qr_phone">Phone</span>
+                </label>
+                <label class="flex items-center space-x-1.5 cursor-pointer col-span-2">
+                  <input type="checkbox" id="builder-qr-website" checked onchange="toggleBuilderQrField('website', this.checked)" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 dark:border-slate-600">
+                  <span class="text-slate-700 dark:text-slate-300" data-i18n="qr_web">Website (direct link)</span>
+                </label>
+              </div>
+              <p class="text-[10px] text-slate-400 dark:text-slate-500 leading-tight" data-i18n="hint_qr_direct">
+                💡 If only website is selected, scanner immediately opens URL in browser.
+              </p>
+            </div>
+
+            <!-- Координаты X и Y (Слайдеры + Цифры) -->
+            <div id="coords-wrap" class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex justify-between">
+                  <span data-i18n="lbl_pos_x">Position X</span>
+                  <span id="label-pos-x" class="text-slate-800 dark:text-slate-200">28 px</span>
+                </label>
+                <input type="range" id="slider-pos-x" min="0" max="400" value="28" oninput="setElementCoord('x', this.value)" class="w-full">
+              </div>
+              <div>
+                <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex justify-between">
+                  <span data-i18n="lbl_pos_y">Position Y</span>
+                  <span id="label-pos-y" class="text-slate-800 dark:text-slate-200">52 px</span>
+                </label>
+                <input type="range" id="slider-pos-y" min="0" max="270" value="52" oninput="setElementCoord('y', this.value)" class="w-full">
+              </div>
+            </div>
+
+            <!-- Размер шрифта / QR / Полосы -->
+            <div>
+              <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex justify-between">
+                <span id="label-size-title" data-i18n="lbl_size_font">Font Size</span>
+                <span id="label-size-val" class="text-slate-800 dark:text-slate-200">24 px</span>
+              </label>
+              <input type="range" id="slider-size" min="10" max="42" value="24" oninput="setElementSize(this.value)" class="w-full">
+            </div>
+
+            <!-- Цвет текста и плашки -->
+            <div class="flex items-center space-x-4 pt-1">
+              <div class="flex items-center space-x-2">
+                <span id="elem-color-label" class="text-xs text-slate-600 dark:text-slate-300" data-i18n="lbl_color_text">Text Color:</span>
+                <input type="color" id="elem-color-picker" value="#0F172A" onchange="setElementColor(this.value)" class="w-7 h-7 rounded cursor-pointer border border-slate-300 dark:border-slate-600">
+              </div>
+              <div id="box-bg-picker-wrap" class="flex items-center space-x-2 hidden">
+                <span class="text-xs text-slate-600 dark:text-slate-300" data-i18n="lbl_bg_badge">Pill Background:</span>
+                <input type="color" id="elem-bg-picker" value="#F1F5F9" onchange="setElementBgColor(this.value)" class="w-7 h-7 rounded cursor-pointer border border-slate-300 dark:border-slate-600">
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Сохранение шаблона -->
+          <div class="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-200 dark:border-blue-900/50 space-y-3">
+            <h3 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider" data-i18n="bld_sec3_title">3. Save Template</h3>
+            
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1" data-i18n="lbl_tpl_name">Template Name *</label>
+              <input type="text" id="custom-tpl-name" placeholder="e.g., Tech Summit 2026" data-i18n-placeholder="placeholder_tpl_name"
+                     class="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <p id="name-error-msg" class="text-xs text-red-600 font-bold mt-1.5 hidden"></p>
+            </div>
+
+            <button onclick="saveCustomTemplateAction()" id="btn-save-custom"
+                    class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition" data-i18n="btn_save_tpl">
+              Save and Select This Template
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ================== I18N DICTIONARY ==================
+    const i18n = {
+      ru: {
+        app_title: "Badge & QR Maker",
+        app_subtitle: "Генерация бейджей и печатных листов А4",
+        btn_upload_tpl: "Загрузить свой шаблон",
+        btn_builder: "Конструктор",
+        step1_tag: "Шаг 1",
+        step1_title: "Выберите стиль бейджа",
+        step1_desc: "Выберите готовый стиль, загрузите свой фон или создайте дизайн в конструкторе",
+        btn_upload_layout: "Загрузить макет",
+        btn_add_builder: "+ Конструктор",
+        tpl_create_title: "Свой дизайн",
+        tpl_create_desc: "Конструктор и свой фон",
+        tpl_badge_custom: "СВОЙ",
+        tpl_loading: "Загрузка шаблонов...",
+        step2_tag: "Шаг 2",
+        step2_title: "Параметры",
+        lbl_category: "Верхняя плашка / Категория",
+        hint_category: "Оставьте пустым, чтобы не отображать.",
+        placeholder_category: "например, EVENT PASS (или пусто)",
+        lbl_date: "Дата проведения",
+        hint_date: "Выводится на бейдже без слова DATE: (или сотрите)",
+        lbl_phone: "Номер телефона (необязательно)",
+        hint_phone: "Отобразится на карточке, если заполнен.",
+        placeholder_phone: "например, +7 (999) 000-00-00",
+        lbl_website: "Ссылка на сайт (необязательно)",
+        hint_website: "Отобразится на карточке, если заполнена.",
+        placeholder_website: "например, company.com",
+        lbl_bg_color: "Свой цвет фона карточек (необязательно)",
+        chk_apply_bg: "Применить свой цвет фона",
+        hint_bg_color: "Переопределит стандартный цвет фона шаблона.",
+        lbl_accent_bar: "Верхняя линия",
+        chk_accent_enabled: "Включена",
+        chk_accent_override: "Свой цвет линии",
+        hint_accent: "Можно отключить или задать свой цвет акцентной полосы.",
+        lbl_qr_data: "Данные в QR-коде",
+        hint_qr_toggle: "включить/отключить",
+        qr_fio: "ФИО / Имя",
+        qr_id: "ID бейджа",
+        qr_date: "Дата",
+        qr_phone: "Телефон",
+        qr_web: "Сайт (прямая ссылка)",
+        hint_qr_direct: "💡 Если включен только сайт, сканер сразу откроет сайт в браузере.",
+        lbl_is_pdf: "Создать PDF для печати",
+        hint_is_pdf: "Добавит в ZIP лист А4 с контурами нарезки",
+        step3_tag: "Шаг 3",
+        step3_title: "Список сотрудников",
+        badge_emp_count: "Сотрудников: ",
+        tab_text: "📝 Список текстом",
+        tab_excel: "📊 Excel / CSV файл",
+        tab_json: "⚙️ JSON (API)",
+        lbl_text_prompt: "Каждый сотрудник с новой строки (Имя Фамилия):",
+        btn_insert_sample: "+ Вставить пример",
+        placeholder_text: "Александр Смирнов\nЕлена Иванова\nМихаил Кузнецов, +7 (999) 111-22-33, mycompany.com",
+        dropzone_title: "Перетащите сюда Excel (.xlsx) или CSV файл",
+        dropzone_desc: "Поддерживаются колонки: Имя, Фамилия, ФИО, Телефон, Сайт",
+        lbl_json_prompt: "Формат JSON для разработчиков:",
+        btn_format_json: "Форматировать JSON",
+        lbl_selected_tpl: "Выбран шаблон: ",
+        btn_generate: "Сгенерировать бейджи",
+        gen_in_progress: "Генерация в процессе...",
+        gen_connecting: "Подключение к фоновому воркеру...",
+        gen_sending: "Отправка задачи воркеру...",
+        gen_processing: "Сгенерировано {current} из {total}...",
+        gen_done_title: "Готово!",
+        gen_done_desc: "Все карточки и печатный PDF собраны в архив.",
+        btn_download_zip: "Скачать ZIP",
+        modal_title: "Конструктор собственного бейджа",
+        modal_desc: "Перетаскивайте блоки мышкой по карточке или настраивайте координаты ползунками",
+        canvas_info: "Карточка 450 × 300 px • Кликните на элемент для настройки",
+        canvas_drag_tip: "💡 Зажмите мышкой любой элемент и переместите его в нужное место.",
+        bld_sec1_title: "1. Фон карточки",
+        btn_upload_img: "Загрузить изображение",
+        btn_reset_bg: "Сбросить фон",
+        hint_auto_crop: "Автоматическая умная подгонка к пропорциям 3:2 (450×300).",
+        lbl_bld_bg_color: "Цвет фона карточки:",
+        bld_sec2_title: "2. Элемент: ",
+        lbl_elem_visible: "Виден",
+        btn_elem_bar: "Линия",
+        btn_elem_cat: "Категория",
+        btn_elem_name: "Имя",
+        btn_elem_surname: "Фамилия",
+        btn_elem_fio: "ФИО (строка)",
+        btn_elem_id: "ID",
+        btn_elem_date: "Дата",
+        btn_elem_phone: "Телефон",
+        btn_elem_web: "Сайт",
+        btn_elem_qr: "QR",
+        lbl_pos_x: "Позиция X",
+        lbl_pos_y: "Позиция Y",
+        lbl_size_font: "Размер шрифта",
+        lbl_size_qr: "Размер QR-кода",
+        lbl_size_bar: "Высота полосы",
+        lbl_color_text: "Цвет текста:",
+        lbl_color_qr: "Цвет QR-кода:",
+        lbl_color_bar: "Цвет линии:",
+        lbl_bg_badge: "Фон плашки:",
+        bld_sec3_title: "3. Сохранение шаблона",
+        lbl_tpl_name: "Название шаблона *",
+        placeholder_tpl_name: "например, Мой Хакатон 2026",
+        btn_save_tpl: "Сохранить и выбрать этот шаблон",
+        btn_saving: "Сохранение...",
+        err_empty_name: "Пожалуйста, введите название шаблона",
+        confirm_delete_tpl: "Вы действительно хотите удалить этот шаблон?",
+        dark_mode: "Тёмная тема",
+        light_mode: "Светлая тема",
+        tpl_classic_blue_name: "Classic Blue (Tech)",
+        tpl_classic_blue_desc: "Строгий деловой стиль для IT-конференций и митапов",
+        tpl_dark_modern_name: "Dark Modern (VIP)",
+        tpl_dark_modern_desc: "Премиальный темный стиль для закрытых клубов и VIP-гостей",
+        tpl_minimal_white_name: "Minimalist Monochrome",
+        tpl_minimal_white_desc: "Сдержанный монохромный стиль для выставок, форумов и лекций",
+        tpl_festival_green_name: "Festival Emerald (Hackathon)",
+        tpl_festival_green_desc: "Свежий яркий дизайн для хакатонов, фестивалей и соревнований"
+      },
+      en: {
+        app_title: "Badge & QR Maker",
+        app_subtitle: "Badge generator & printable A4 sheets",
+        btn_upload_tpl: "Upload custom template",
+        btn_builder: "Card Builder",
+        step1_tag: "Step 1",
+        step1_title: "Choose Badge Style",
+        step1_desc: "Choose a ready-made style, upload your background, or design in the builder",
+        btn_upload_layout: "Upload layout",
+        btn_add_builder: "+ Card Builder",
+        tpl_create_title: "Custom Design",
+        tpl_create_desc: "Visual builder & background",
+        tpl_badge_custom: "CUSTOM",
+        tpl_loading: "Loading templates...",
+        step2_tag: "Step 2",
+        step2_title: "Parameters",
+        lbl_category: "Header / Category Tag",
+        hint_category: "Leave blank to hide.",
+        placeholder_category: "e.g., EVENT PASS (or blank)",
+        lbl_date: "Event Date",
+        hint_date: "Displayed on the badge without the word DATE: (or clear it)",
+        lbl_phone: "Phone Number (optional)",
+        hint_phone: "Displayed on the card if provided.",
+        placeholder_phone: "e.g., +1 (555) 000-0000",
+        lbl_website: "Website Link (optional)",
+        hint_website: "Displayed on the card if provided.",
+        placeholder_website: "e.g., company.com",
+        lbl_bg_color: "Custom Card Background (optional)",
+        chk_apply_bg: "Apply custom background color",
+        hint_bg_color: "Overrides the default template background color.",
+        lbl_accent_bar: "Top Accent Line",
+        chk_accent_enabled: "Enabled",
+        chk_accent_override: "Custom line color",
+        hint_accent: "Can be disabled or given a custom accent color.",
+        lbl_qr_data: "Data inside QR Code",
+        hint_qr_toggle: "enable / disable",
+        qr_fio: "Full Name / Name",
+        qr_id: "Badge ID",
+        qr_date: "Date",
+        qr_phone: "Phone",
+        qr_web: "Website (direct link)",
+        hint_qr_direct: "💡 If only website is selected, scanner immediately opens URL in browser.",
+        lbl_is_pdf: "Generate printable PDF",
+        hint_is_pdf: "Adds printable A4 sheets with cutting guidelines to ZIP",
+        step3_tag: "Step 3",
+        step3_title: "Attendee List",
+        badge_emp_count: "Attendees: ",
+        tab_text: "📝 Text List",
+        tab_excel: "📊 Excel / CSV File",
+        tab_json: "⚙️ JSON (API)",
+        lbl_text_prompt: "One person per line (Firstname Lastname):",
+        btn_insert_sample: "+ Insert example",
+        placeholder_text: "Alexander Smith\nElena Ivanova\nMichael Brown, +1 (555) 123-4567, mycompany.com",
+        dropzone_title: "Drop Excel (.xlsx) or CSV file here",
+        dropzone_desc: "Supported columns: First Name, Last Name, Full Name, Phone, Website",
+        lbl_json_prompt: "JSON format for developers:",
+        btn_format_json: "Format JSON",
+        lbl_selected_tpl: "Selected template: ",
+        btn_generate: "Generate Badges",
+        gen_in_progress: "Generation in progress...",
+        gen_connecting: "Connecting to background worker...",
+        gen_sending: "Sending task to worker...",
+        gen_processing: "Generated {current} of {total}...",
+        gen_done_title: "All Done!",
+        gen_done_desc: "All cards and printable PDF assembled into ZIP archive.",
+        btn_download_zip: "Download ZIP",
+        modal_title: "Custom Badge Builder",
+        modal_desc: "Drag elements with mouse or fine-tune coordinates with sliders",
+        canvas_info: "Card 450 × 300 px • Click any element to configure",
+        canvas_drag_tip: "💡 Drag any element across the card to reposition it.",
+        bld_sec1_title: "1. Card Background",
+        btn_upload_img: "Upload Image",
+        btn_reset_bg: "Reset Background",
+        hint_auto_crop: "Automatic smart fit/crop to 3:2 aspect ratio (450×300).",
+        lbl_bld_bg_color: "Card Background Color:",
+        bld_sec2_title: "2. Element: ",
+        lbl_elem_visible: "Visible",
+        btn_elem_bar: "Line",
+        btn_elem_cat: "Category",
+        btn_elem_name: "First Name",
+        btn_elem_surname: "Last Name",
+        btn_elem_fio: "Full Name",
+        btn_elem_id: "ID",
+        btn_elem_date: "Date",
+        btn_elem_phone: "Phone",
+        btn_elem_web: "Website",
+        btn_elem_qr: "QR",
+        lbl_pos_x: "Position X",
+        lbl_pos_y: "Position Y",
+        lbl_size_font: "Font Size",
+        lbl_size_qr: "QR Code Size",
+        lbl_size_bar: "Line Height",
+        lbl_color_text: "Text Color:",
+        lbl_color_qr: "QR Code Color:",
+        lbl_color_bar: "Line Color:",
+        lbl_bg_badge: "Pill Background:",
+        bld_sec3_title: "3. Save Template",
+        lbl_tpl_name: "Template Name *",
+        placeholder_tpl_name: "e.g., Tech Summit 2026",
+        btn_save_tpl: "Save and Select This Template",
+        btn_saving: "Saving...",
+        err_empty_name: "Please enter a template name",
+        confirm_delete_tpl: "Are you sure you want to delete this template?",
+        dark_mode: "Dark Theme",
+        light_mode: "Light Theme",
+        tpl_classic_blue_name: "Classic Blue (Tech)",
+        tpl_classic_blue_desc: "Clean corporate style for IT conferences and meetups",
+        tpl_dark_modern_name: "Dark Modern (VIP)",
+        tpl_dark_modern_desc: "Premium dark style for exclusive clubs and VIP guests",
+        tpl_minimal_white_name: "Minimalist Monochrome",
+        tpl_minimal_white_desc: "Subtle monochrome style for exhibitions, forums, and lectures",
+        tpl_festival_green_name: "Festival Emerald (Hackathon)",
+        tpl_festival_green_desc: "Vibrant fresh design for hackathons, festivals, and contests"
+      }
+    };
+
+    // ================== LANGUAGE & THEME DETECTION ==================
+    function getInitialLanguage() {
+      const saved = localStorage.getItem('badge_lang');
+      if (saved === 'ru' || saved === 'en') return saved;
+      // Если браузер не русский -> по умолчанию английский ('en')
+      const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+      if (browserLang.startsWith('ru') || browserLang.startsWith('be') || browserLang.startsWith('uk')) {
+        return 'ru';
+      }
+      return 'en';
+    }
+
+    let currentLang = getInitialLanguage();
+
+    function setLanguage(lang) {
+      if (lang !== 'ru' && lang !== 'en') return;
+      currentLang = lang;
+      localStorage.setItem('badge_lang', lang);
+      applyTranslations();
+    }
+
+    function getInitialTheme() {
+      const saved = localStorage.getItem('badge_theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+      return 'light';
+    }
+
+    let currentTheme = getInitialTheme();
+
+    function setTheme(theme) {
+      currentTheme = theme;
+      localStorage.setItem('badge_theme', theme);
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      updateThemeIcon();
+    }
+
+    function toggleTheme() {
+      setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    }
+
+    function updateThemeIcon() {
+      const btn = document.getElementById('theme-toggle-btn');
+      if (!btn) return;
+      if (currentTheme === 'dark') {
+        btn.innerHTML = `
+          <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+          </svg>
+        `;
+        btn.title = i18n[currentLang]?.light_mode || "Light Theme";
+      } else {
+        btn.innerHTML = `
+          <svg class="w-4 h-4 text-slate-600 dark:text-slate-300" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+          </svg>
+        `;
+        btn.title = i18n[currentLang]?.dark_mode || "Dark Theme";
+      }
+    }
+
+    function updateLangButtons() {
+      const btnEn = document.getElementById('lang-btn-en');
+      const btnRu = document.getElementById('lang-btn-ru');
+      if (currentLang === 'en') {
+        btnEn.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white shadow-sm transition";
+        btnRu.className = "px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition";
+      } else {
+        btnRu.className = "px-2.5 py-1 rounded-lg bg-blue-600 text-white shadow-sm transition";
+        btnEn.className = "px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition";
+      }
+    }
+
+    function applyTranslations() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (i18n[currentLang] && i18n[currentLang][key]) {
+          el.innerText = i18n[currentLang][key];
+        }
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (i18n[currentLang] && i18n[currentLang][key]) {
+          el.placeholder = i18n[currentLang][key];
+        }
+      });
+
+      document.title = i18n[currentLang].app_title;
+      document.documentElement.lang = currentLang;
+
+      updateLangButtons();
+      updateThemeIcon();
+      updateEmpCountBadge();
+      updateQrFieldsCountBadge();
+
+      if (elemMap[activeElementKey]) {
+        setActiveElement(activeElementKey);
+      }
+
+      renderTemplatesGrid();
+    }
+
+    // ================== LAYOUT & BUILDER STATE ==================
+    let selectedTemplate = 'classic_blue';
+    let currentUploadedBgId = null;
+    let cachedTemplates = [];
+
+    const builderLayout = {
+      accent_bar:     { height: 6, color: '#2563EB', visible: true },
+      category_title: { x: 28, y: 26, color: '#64748B', size: 11, visible: true, text: 'EVENT PASS' },
+      name:           { x: 28, y: 52, color: '#0F172A', size: 24, visible: true },
+      surname:        { x: 28, y: 84, color: '#0F172A', size: 24, visible: true },
+      full_name:      { x: 28, y: 68, color: '#0F172A', size: 22, visible: false },
+      id_badge:       { x: 28, y: 150, color: '#334155', bg: '#F1F5F9', size: 12, visible: true },
+      date:           { x: 115, y: 150, color: '#334155', bg: '#F1F5F9', size: 11, visible: true },
+      phone:          { x: 28, y: 204, color: '#64748B', size: 10, visible: true, text: '+7 (999) 000-00-00' },
+      website:        { x: 28, y: 224, color: '#2563EB', size: 10, visible: true, text: 'mycompany.com' },
+      qr_code:        { x: 288, y: 58, size: 125, qr_dark: '#0F172A', qr_light: '#FFFFFF', visible: true, border: true, border_color: '#E2E8F0', fields: ['name', 'id', 'date', 'phone', 'website'] }
+    };
+
+    let activeElementKey = 'name';
+
+    const elemMap = {
+      'accent_bar':     { id: 'canvas-accent-bar', isBox: false, isQr: false, isBar: true, hasCustomText: false },
+      'category_title': { id: 'item-category', isBox: false, isQr: false, isBar: false, hasCustomText: true },
+      'name':           { id: 'item-name', isBox: false, isQr: false, isBar: false, hasCustomText: false },
+      'surname':        { id: 'item-surname', isBox: false, isQr: false, isBar: false, hasCustomText: false },
+      'full_name':      { id: 'item-fullname', isBox: false, isQr: false, isBar: false, hasCustomText: false },
+      'id_badge':       { id: 'item-id', isBox: true, isQr: false, isBar: false, hasCustomText: false },
+      'date':           { id: 'item-date', isBox: true, isQr: false, isBar: false, hasCustomText: false },
+      'phone':          { id: 'item-phone', isBox: false, isQr: false, isBar: false, hasCustomText: true },
+      'website':        { id: 'item-website', isBox: false, isQr: false, isBar: false, hasCustomText: true },
+      'qr_code':        { id: 'item-qr', isBox: false, isQr: true, isBar: false, hasCustomText: false }
+    };
+
+    function getElementTitle(key) {
+      const titles = {
+        ru: {
+          accent_bar: 'Верхняя линия',
+          category_title: 'Категория / Заголовок',
+          name: 'Имя',
+          surname: 'Фамилия',
+          full_name: 'ФИО (одна строка)',
+          id_badge: 'Плашка ID',
+          date: 'Плашка Даты',
+          phone: 'Телефон',
+          website: 'Сайт',
+          qr_code: 'QR-код'
+        },
+        en: {
+          accent_bar: 'Accent Line',
+          category_title: 'Category / Header',
+          name: 'First Name',
+          surname: 'Last Name',
+          full_name: 'Full Name',
+          id_badge: 'ID Pill',
+          date: 'Date Pill',
+          phone: 'Phone',
+          website: 'Website',
+          qr_code: 'QR Code'
+        }
+      };
+      return titles[currentLang]?.[key] || key;
+    }
+
+    function triggerDirectUpload() {
+      document.getElementById('direct-bg-input').click();
+    }
+
+    async function handleDirectBgUpload(input) {
+      if (!input.files || !input.files[0]) return;
+      openBuilderModal();
+      await uploadBackgroundImage(input);
+    }
+
+    // ================== TEMPLATES GALLERY ==================
+    async function loadTemplates() {
+      try {
+        const res = await fetch('/api/templates');
+        cachedTemplates = await res.json();
+        renderTemplatesGrid();
+      } catch (e) {
+        console.error('Ошибка загрузки шаблонов:', e);
+      }
+    }
+
+    function getLocalizedTemplate(tpl) {
+      if (!tpl.is_custom) {
+        const prefix = `tpl_${tpl.id}`;
+        const locName = i18n[currentLang]?.[`${prefix}_name`];
+        const locDesc = i18n[currentLang]?.[`${prefix}_desc`];
+        return {
+          ...tpl,
+          name: locName || tpl.name,
+          description: locDesc || tpl.description
+        };
+      }
+      return tpl;
+    }
+
+    function renderTemplatesGrid() {
+      const container = document.getElementById('templates-grid');
+      if (!container) return;
+      container.innerHTML = '';
+
+      // Карточка "+ Создать свой дизайн"
+      const createCard = document.createElement('div');
+      createCard.className = "template-card cursor-pointer rounded-2xl p-4 border-2 border-dashed border-indigo-300 dark:border-indigo-700 hover:border-indigo-500 dark:hover:border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition flex flex-col items-center justify-center text-center aspect-[3/2.2]";
+      createCard.onclick = openBuilderModal;
+      createCard.innerHTML = `
+        <div class="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xl font-bold mb-2 shadow-md">
+          +
+        </div>
+        <h3 class="font-bold text-sm text-indigo-950 dark:text-indigo-200">${i18n[currentLang].tpl_create_title}</h3>
+        <p class="text-[11px] text-indigo-600/80 dark:text-indigo-400 mt-0.5">${i18n[currentLang].tpl_create_desc}</p>
+      `;
+      container.appendChild(createCard);
+
+      cachedTemplates.forEach(rawTpl => {
+        const tpl = getLocalizedTemplate(rawTpl);
+        const isSelected = tpl.id === selectedTemplate;
+        const card = document.createElement('div');
+        card.id = `tpl-card-${tpl.id}`;
+        card.className = `template-card relative cursor-pointer rounded-2xl p-3 border-2 transition-all duration-200 bg-white dark:bg-slate-800 ${
+          isSelected 
+            ? 'border-blue-600 dark:border-blue-500 shadow-lg shadow-blue-500/10 ring-2 ring-blue-500/20' 
+            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+        }`;
+        card.onclick = () => selectTemplate(tpl.id, tpl.name, tpl.category_title);
+
+        const customBadge = tpl.is_custom 
+          ? `<div class="absolute top-4 left-4 px-2 py-0.5 bg-indigo-600 text-white text-[10px] font-bold rounded-md shadow">${i18n[currentLang].tpl_badge_custom}</div>` 
+          : '';
+
+        const deleteBtn = tpl.is_custom 
+          ? `<button onclick="deleteCustomTemplate(event, '${tpl.id}')" title="Delete template" class="absolute bottom-4 right-4 p-1.5 bg-white/90 dark:bg-slate-700/90 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-400 hover:text-red-600 rounded-lg shadow-sm border border-slate-200 dark:border-slate-600 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+             </button>` 
+          : '';
+
+        card.innerHTML = `
+          <div class="relative rounded-xl overflow-hidden mb-3 border border-slate-100 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 aspect-[3/2]">
+            <img src="${tpl.preview_url}" alt="${tpl.name}" class="w-full h-full object-cover">
+            ${customBadge}
+            <div id="check-${tpl.id}" class="absolute top-2 right-2 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow ${isSelected ? '' : 'hidden'}">
+              ✓
+            </div>
+          </div>
+          <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 leading-snug mb-0.5 truncate">${tpl.name}</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 leading-relaxed">${tpl.description}</p>
+          ${deleteBtn}
+        `;
+        container.appendChild(card);
+      });
+
+      const current = cachedTemplates.find(t => t.id === selectedTemplate) || cachedTemplates[0];
+      if (current) {
+        const loc = getLocalizedTemplate(current);
+        selectTemplate(loc.id, loc.name, loc.category_title);
+      }
+    }
+
+    function selectTemplate(tplId, tplName, defaultCategory) {
+      selectedTemplate = tplId;
+      document.getElementById('badge-name').innerText = tplName;
+      
+      const catInput = document.getElementById('category-title');
+      if (defaultCategory !== undefined) {
+        catInput.value = defaultCategory || '';
+      }
+
+      document.querySelectorAll('.template-card').forEach(c => {
+        c.classList.remove('border-blue-600', 'dark:border-blue-500', 'shadow-lg', 'shadow-blue-500/10', 'ring-2', 'ring-blue-500/20');
+        c.classList.add('border-slate-200', 'dark:border-slate-700');
+      });
+      document.querySelectorAll('[id^="check-"]').forEach(el => el.classList.add('hidden'));
+
+      const activeCard = document.getElementById(`tpl-card-${tplId}`);
+      if (activeCard) {
+        activeCard.classList.add('border-blue-600', 'dark:border-blue-500', 'shadow-lg', 'shadow-blue-500/10', 'ring-2', 'ring-blue-500/20');
+        activeCard.classList.remove('border-slate-200', 'dark:border-slate-700');
+        const checkEl = document.getElementById(`check-${tplId}`);
+        if (checkEl) checkEl.classList.remove('hidden');
+      }
+    }
+
+    async function deleteCustomTemplate(e, tplId) {
+      e.stopPropagation();
+      const confirmText = i18n[currentLang]?.confirm_delete_tpl || "Delete template?";
+      if (!confirm(confirmText)) return;
+
+      try {
+        const res = await fetch(`/api/templates/custom/${tplId}`, { method: 'DELETE' });
+        if (res.ok) {
+          if (selectedTemplate === tplId) selectedTemplate = 'classic_blue';
+          loadTemplates();
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // ================== BUILDER MODAL LOGIC ==================
+    function openBuilderModal() {
+      document.getElementById('builder-modal').classList.remove('hidden');
+      document.getElementById('name-error-msg').classList.add('hidden');
+
+      const phoneInput = document.getElementById('contact-phone');
+      if (phoneInput && phoneInput.value.trim()) {
+        const cleanP = phoneInput.value.trim();
+        builderLayout.phone.text = cleanP;
+        const prefix = currentLang === 'ru' ? 'Тел: ' : 'Tel: ';
+        document.getElementById('item-phone').innerText = (cleanP.toLowerCase().startsWith('тел') || cleanP.toLowerCase().startsWith('tel')) ? cleanP : `${prefix}${cleanP}`;
+      }
+
+      const webInput = document.getElementById('contact-website');
+      if (webInput && webInput.value.trim()) {
+        const cleanW = webInput.value.trim();
+        builderLayout.website.text = cleanW;
+        document.getElementById('item-website').innerText = cleanW;
+      }
+
+      setActiveElement('name');
+    }
+
+    function closeBuilderModal() {
+      document.getElementById('builder-modal').classList.add('hidden');
+    }
+
+    async function uploadBackgroundImage(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      const formData = new FormData();
+      formData.append('background', file);
+
+      try {
+        const res = await fetch('/api/templates/upload-background', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || 'Upload error');
+          return;
+        }
+
+        const data = await res.json();
+        currentUploadedBgId = data.temp_bg_id;
+        
+        const canvas = document.getElementById('badge-canvas');
+        canvas.style.backgroundImage = `url('${data.preview_url}?t=${Date.now()}')`;
+        document.getElementById('canvas-accent-bar').classList.add('hidden');
+        builderLayout.accent_bar.visible = false;
+      } catch (e) {
+        alert('Upload error: ' + e.message);
+      }
+    }
+
+    function isDarkColor(hex) {
+      if (!hex || typeof hex !== 'string') return false;
+      const clean = hex.replace('#', '');
+      if (clean.length === 3) {
+        const r = parseInt(clean[0] + clean[0], 16);
+        const g = parseInt(clean[1] + clean[1], 16);
+        const b = parseInt(clean[2] + clean[2], 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) < 128;
+      } else if (clean.length === 6) {
+        const r = parseInt(clean.slice(0, 2), 16);
+        const g = parseInt(clean.slice(2, 4), 16);
+        const b = parseInt(clean.slice(4, 6), 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) < 128;
+      }
+      return false;
+    }
+
+    function clearCustomBg() {
+      currentUploadedBgId = null;
+      updateBgColor('#FFFFFF');
+    }
+
+    function updateBgColor(color) {
+      if (!color) return;
+      if (!color.startsWith('#')) color = '#' + color;
+
+      currentUploadedBgId = null;
+      const canvas = document.getElementById('badge-canvas');
+      canvas.style.backgroundImage = 'none';
+      canvas.style.backgroundColor = color;
+
+      const picker = document.getElementById('bg-color-picker');
+      if (picker && color.length === 7) picker.value = color;
+      const hexInput = document.getElementById('bg-hex-input');
+      if (hexInput) hexInput.value = color.toUpperCase();
+      const hexLabel = document.getElementById('bg-hex-label');
+      if (hexLabel) hexLabel.innerText = color.toUpperCase();
+
+      document.getElementById('canvas-accent-bar').classList.remove('hidden');
+      builderLayout.accent_bar.visible = true;
+
+      const dark = isDarkColor(color);
+      const textPrimary = dark ? '#F8FAFC' : '#0F172A';
+      const textSecondary = dark ? '#94A3B8' : '#64748B';
+      const tagBg = dark ? '#1E293B' : '#F1F5F9';
+      const tagText = dark ? '#38BDF8' : '#334155';
+
+      builderLayout.name.color = textPrimary;
+      builderLayout.surname.color = textPrimary;
+      builderLayout.full_name.color = textPrimary;
+      builderLayout.category_title.color = textSecondary;
+      builderLayout.phone.color = textSecondary;
+      builderLayout.website.color = dark ? '#38BDF8' : '#2563EB';
+      builderLayout.id_badge.bg = tagBg;
+      builderLayout.id_badge.color = tagText;
+      builderLayout.date.bg = tagBg;
+      builderLayout.date.color = dark ? '#F1F5F9' : '#334155';
+
+      document.getElementById('item-name').style.color = textPrimary;
+      document.getElementById('item-surname').style.color = textPrimary;
+      document.getElementById('item-fullname').style.color = textPrimary;
+      document.getElementById('item-category').style.color = textSecondary;
+      document.getElementById('item-phone').style.color = textSecondary;
+      document.getElementById('item-website').style.color = dark ? '#38BDF8' : '#2563EB';
+      document.getElementById('item-id').style.backgroundColor = tagBg;
+      document.getElementById('item-id').style.color = tagText;
+      document.getElementById('item-date').style.backgroundColor = tagBg;
+      document.getElementById('item-date').style.color = dark ? '#F1F5F9' : '#334155';
+
+      const conf = builderLayout[activeElementKey];
+      if (conf) {
+        document.getElementById('elem-color-picker').value = conf.color || '#0F172A';
+        if (conf.bg) document.getElementById('elem-bg-picker').value = conf.bg;
+      }
+    }
+
+    function toggleBuilderQrField(fieldName, isChecked) {
+      if (!builderLayout.qr_code.fields) {
+        builderLayout.qr_code.fields = ['name', 'id', 'date', 'phone', 'website'];
+      }
+      if (isChecked) {
+        if (!builderLayout.qr_code.fields.includes(fieldName)) {
+          builderLayout.qr_code.fields.push(fieldName);
+        }
+      } else {
+        builderLayout.qr_code.fields = builderLayout.qr_code.fields.filter(f => f !== fieldName);
+      }
+      updateQrFieldsCountBadge();
+    }
+
+    function updateQrFieldsCountBadge() {
+      const fields = builderLayout.qr_code.fields || ['name', 'id', 'date', 'phone', 'website'];
+      const badge = document.getElementById('qr-fields-count');
+      if (badge) {
+        const word = currentLang === 'ru' ? 'выбрано' : 'selected';
+        badge.innerText = `${fields.length} ${word}`;
+      }
+    }
+
+    function setActiveElement(key) {
+      activeElementKey = key;
+      const meta = elemMap[key];
+      const conf = builderLayout[key];
+
+      document.querySelectorAll('.draggable-item').forEach(el => el.classList.remove('active-element'));
+      const activeEl = document.getElementById(meta.id);
+      if (activeEl && !meta.isBar) activeEl.classList.add('active-element');
+
+      document.getElementById('current-element-title').innerText = getElementTitle(key);
+      document.getElementById('elem-visible').checked = conf.visible !== false;
+
+      const coordsWrap = document.getElementById('coords-wrap');
+      const sizeTitle = document.getElementById('label-size-title');
+      const sizeSlider = document.getElementById('slider-size');
+      const colorLabel = document.getElementById('elem-color-label');
+      const qrFieldsWrap = document.getElementById('qr-fields-wrap');
+
+      if (meta.isBar) {
+        if (coordsWrap) coordsWrap.classList.add('hidden');
+        if (qrFieldsWrap) qrFieldsWrap.classList.add('hidden');
+        sizeTitle.innerText = i18n[currentLang]?.lbl_size_bar || 'Line Height';
+        sizeSlider.min = 1;
+        sizeSlider.max = 30;
+        sizeSlider.value = conf.height || 6;
+        document.getElementById('label-size-val').innerText = `${conf.height || 6} px`;
+        if (colorLabel) colorLabel.innerText = i18n[currentLang]?.lbl_color_bar || 'Line Color:';
+        document.getElementById('elem-color-picker').value = conf.color || '#2563EB';
+      } else if (meta.isQr) {
+        if (coordsWrap) coordsWrap.classList.remove('hidden');
+        if (qrFieldsWrap) qrFieldsWrap.classList.remove('hidden');
+
+        const curFields = conf.fields || ['name', 'id', 'date', 'phone', 'website'];
+        ['name', 'id', 'date', 'phone', 'website'].forEach(f => {
+          const chk = document.getElementById(`builder-qr-${f}`);
+          if (chk) chk.checked = curFields.includes(f);
+        });
+        updateQrFieldsCountBadge();
+
+        document.getElementById('slider-pos-x').value = conf.x;
+        document.getElementById('label-pos-x').innerText = `${conf.x} px`;
+        document.getElementById('slider-pos-y').value = conf.y;
+        document.getElementById('label-pos-y').innerText = `${conf.y} px`;
+
+        sizeTitle.innerText = i18n[currentLang]?.lbl_size_qr || 'QR Code Size';
+        sizeSlider.min = 60;
+        sizeSlider.max = 180;
+        sizeSlider.value = conf.size;
+        document.getElementById('label-size-val').innerText = `${conf.size} px`;
+        if (colorLabel) colorLabel.innerText = i18n[currentLang]?.lbl_color_qr || 'QR Code Color:';
+        document.getElementById('elem-color-picker').value = conf.qr_dark || conf.color || '#0F172A';
+      } else {
+        if (coordsWrap) coordsWrap.classList.remove('hidden');
+        if (qrFieldsWrap) qrFieldsWrap.classList.add('hidden');
+
+        document.getElementById('slider-pos-x').value = conf.x;
+        document.getElementById('label-pos-x').innerText = `${conf.x} px`;
+        document.getElementById('slider-pos-y').value = conf.y;
+        document.getElementById('label-pos-y').innerText = `${conf.y} px`;
+
+        sizeTitle.innerText = i18n[currentLang]?.lbl_size_font || 'Font Size';
+        sizeSlider.min = 8;
+        sizeSlider.max = 38;
+        sizeSlider.value = conf.size;
+        document.getElementById('label-size-val').innerText = `${conf.size} px`;
+        if (colorLabel) colorLabel.innerText = i18n[currentLang]?.lbl_color_text || 'Text Color:';
+        document.getElementById('elem-color-picker').value = conf.color || '#0F172A';
+      }
+
+      // Цвет фона плашки (для ID и Даты)
+      const bgPickerWrap = document.getElementById('box-bg-picker-wrap');
+      if (meta.isBox) {
+        bgPickerWrap.classList.remove('hidden');
+        document.getElementById('elem-bg-picker').value = conf.bg || '#F1F5F9';
+      } else {
+        bgPickerWrap.classList.add('hidden');
+      }
+
+      // Текст надписи (для категории/телефона/сайта)
+      const catTextWrap = document.getElementById('category-text-wrap');
+      const catTextLabel = document.getElementById('category-text-label');
+      if (meta.hasCustomText) {
+        catTextWrap.classList.remove('hidden');
+        if (catTextLabel) catTextLabel.innerText = `${i18n[currentLang]?.lbl_category || 'Text'} (${getElementTitle(key)})`;
+        document.getElementById('category-text-input').value = conf.text || '';
+      } else {
+        catTextWrap.classList.add('hidden');
+      }
+    }
+
+    function setCategoryText(text) {
+      builderLayout[activeElementKey].text = text;
+      const el = document.getElementById(elemMap[activeElementKey].id);
+      if (activeElementKey === 'category_title') {
+        el.innerText = text || ' ';
+      } else if (activeElementKey === 'phone') {
+        const clean = (text || '').trim();
+        const prefix = currentLang === 'ru' ? 'Тел: ' : 'Tel: ';
+        el.innerText = clean ? ((clean.toLowerCase().startsWith('тел') || clean.toLowerCase().startsWith('tel')) ? clean : `${prefix}${clean}`) : ' ';
+      } else if (activeElementKey === 'website') {
+        el.innerText = text || ' ';
+      }
+    }
+
+    function setElementCoord(axis, val) {
+      val = parseInt(val);
+      builderLayout[activeElementKey][axis] = val;
+      document.getElementById(`label-pos-${axis}`).innerText = `${val} px`;
+
+      const el = document.getElementById(elemMap[activeElementKey].id);
+      if (axis === 'x') el.style.left = `${val}px`;
+      if (axis === 'y') el.style.top = `${val}px`;
+    }
+
+    function setElementSize(val) {
+      val = parseInt(val);
+      const meta = elemMap[activeElementKey];
+      const el = document.getElementById(meta.id);
+      if (meta.isBar) {
+        builderLayout.accent_bar.height = val;
+        document.getElementById('label-size-val').innerText = `${val} px`;
+        if (el) el.style.height = `${val}px`;
+        return;
+      }
+      builderLayout[activeElementKey].size = val;
+      document.getElementById('label-size-val').innerText = `${val} px`;
+
+      if (meta.isQr) {
+        el.style.width = `${val}px`;
+        el.style.height = `${val}px`;
+      } else {
+        el.style.fontSize = `${val}px`;
+      }
+    }
+
+    function setElementColor(color) {
+      const meta = elemMap[activeElementKey];
+      const el = document.getElementById(meta.id);
+      if (meta.isBar) {
+        builderLayout.accent_bar.color = color;
+        if (el) el.style.backgroundColor = color;
+        return;
+      }
+      builderLayout[activeElementKey].color = color;
+      if (meta.isQr) {
+        builderLayout[activeElementKey].qr_dark = color;
+      } else {
+        el.style.color = color;
+      }
+    }
+
+    function setElementBgColor(bgColor) {
+      builderLayout[activeElementKey].bg = bgColor;
+      const el = document.getElementById(elemMap[activeElementKey].id);
+      el.style.backgroundColor = bgColor;
+    }
+
+    function toggleElementVisible(visible) {
+      const meta = elemMap[activeElementKey];
+      builderLayout[activeElementKey].visible = visible;
+      const el = document.getElementById(meta.id);
+      if (meta.isBar) {
+        if (visible) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+        return;
+      }
+      if (visible) {
+        el.classList.remove('hidden');
+        el.style.display = meta.isBox ? 'flex' : 'block';
+      } else {
+        el.classList.add('hidden');
+        el.style.display = 'none';
+      }
+    }
+
+    // ================== DRAG & DROP НА ХОЛСТЕ ==================
+    let isDragging = false;
+    let dragStartX = 0, dragStartY = 0;
+    let dragElemStartLeft = 0, dragElemStartTop = 0;
+    let draggedKey = null;
+
+    Object.keys(elemMap).forEach(key => {
+      if (key === 'accent_bar') return;
+      const el = document.getElementById(elemMap[key].id);
+      if (!el) return;
+
+      const startDrag = (clientX, clientY) => {
+        isDragging = true;
+        draggedKey = key;
+        setActiveElement(key);
+
+        dragStartX = clientX;
+        dragStartY = clientY;
+        dragElemStartLeft = parseInt(el.style.left) || 0;
+        dragElemStartTop = parseInt(el.style.top) || 0;
+      };
+
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startDrag(e.clientX, e.clientY);
+      });
+
+      el.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        startDrag(touch.clientX, touch.clientY);
+      });
+    });
+
+    const moveDrag = (clientX, clientY) => {
+      if (!isDragging || !draggedKey) return;
+      const dx = clientX - dragStartX;
+      const dy = clientY - dragStartY;
+
+      let newX = dragElemStartLeft + dx;
+      let newY = dragElemStartTop + dy;
+
+      const el = document.getElementById(elemMap[draggedKey].id);
+      newX = Math.max(0, Math.min(newX, 450 - el.offsetWidth));
+      newY = Math.max(0, Math.min(newY, 300 - el.offsetHeight));
+
+      el.style.left = `${newX}px`;
+      el.style.top = `${newY}px`;
+
+      builderLayout[draggedKey].x = Math.round(newX);
+      builderLayout[draggedKey].y = Math.round(newY);
+
+      document.getElementById('slider-pos-x').value = Math.round(newX);
+      document.getElementById('label-pos-x').innerText = `${Math.round(newX)} px`;
+      document.getElementById('slider-pos-y').value = Math.round(newY);
+      document.getElementById('label-pos-y').innerText = `${Math.round(newY)} px`;
+    };
+
+    window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+    window.addEventListener('touchmove', (e) => {
+      if (isDragging) moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+    });
+
+    const endDrag = () => { isDragging = false; draggedKey = null; };
+    window.addEventListener('mouseup', endDrag);
+    window.addEventListener('touchend', endDrag);
+
+    // ================== СОХРАНЕНИЕ КАСТОМНОГО ШАБЛОНА ==================
+    async function saveCustomTemplateAction() {
+      const nameInput = document.getElementById('custom-tpl-name');
+      const errBox = document.getElementById('name-error-msg');
+      const name = nameInput.value.trim();
+
+      if (!name) {
+        errBox.innerText = i18n[currentLang]?.err_empty_name || 'Please enter template name';
+        errBox.classList.remove('hidden');
+        return;
+      }
+
+      errBox.classList.add('hidden');
+      const btn = document.getElementById('btn-save-custom');
+      btn.disabled = true;
+      btn.innerText = i18n[currentLang]?.btn_saving || 'Saving...';
+
+      try {
+        const payload = {
+          name: name,
+          description: currentLang === 'ru' ? 'Кастомный дизайн из конструктора' : 'Custom design from builder',
+          temp_bg_id: currentUploadedBgId,
+          bg_color: document.getElementById('bg-color-picker').value,
+          layout: builderLayout
+        };
+
+        const res = await fetch('/api/templates/custom', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          errBox.innerText = err.detail || 'Save error';
+          errBox.classList.remove('hidden');
+          btn.disabled = false;
+          btn.innerText = i18n[currentLang]?.btn_save_tpl || 'Save';
+          return;
+        }
+
+        const data = await res.json();
+        closeBuilderModal();
+
+        selectedTemplate = data.template.id;
+        nameInput.value = '';
+        currentUploadedBgId = null;
+
+        await loadTemplates();
+        const customCat = data.template.layout?.category_title?.text || 'EVENT PASS';
+        selectTemplate(data.template.id, data.template.name, customCat);
+
+      } catch (e) {
+        errBox.innerText = 'Network error: ' + e.message;
+        errBox.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = i18n[currentLang]?.btn_save_tpl || 'Save and Select This Template';
+      }
+    }
+
+    // ================== СПИСОК СОТРУДНИКОВ ==================
+    let currentEmployees = [
+      { name: "Alexander", surname: "Smith", id: 101 },
+      { name: "Elena", surname: "Ivanova", id: 102 },
+      { name: "Michael", surname: "Brown", id: 103 }
+    ];
+
+    let currentEmpTab = 'text';
+
+    function updateEmpCountBadge() {
+      const badge = document.getElementById('employee-count-badge');
+      if (badge) {
+        badge.innerText = `${i18n[currentLang]?.badge_emp_count || 'Attendees: '}${currentEmployees.length}`;
+      }
+    }
+
+    function switchEmpTab(tab) {
+      currentEmpTab = tab;
+      const tabs = ['text', 'excel', 'json'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`tab-content-${t}`);
+        if (t === tab) {
+          btn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-blue-600 text-white transition flex items-center space-x-1.5 shadow-sm";
+          content.classList.remove('hidden');
+        } else {
+          btn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition flex items-center space-x-1.5";
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    function syncFromEmployees(source) {
+      updateEmpCountBadge();
+      if (source !== 'json') {
+        document.getElementById('users-json').value = JSON.stringify(currentEmployees, null, 2);
+      }
+      if (source !== 'text') {
+        const textLines = currentEmployees.map(emp => {
+          let line = emp.full_name || `${emp.name || ''} ${emp.surname || ''}`.trim();
+          const extras = [];
+          if (emp.phone) extras.push(emp.phone);
+          if (emp.website) extras.push(emp.website);
+          if (extras.length > 0) line += ', ' + extras.join(', ');
+          return line;
+        });
+        document.getElementById('users-text').value = textLines.join('\n');
+      }
+    }
+
+    let textParseTimeout = null;
+    function syncFromText() {
+      clearTimeout(textParseTimeout);
+      textParseTimeout = setTimeout(async () => {
+        const raw = document.getElementById('users-text').value;
+        try {
+          const res = await fetch('/api/parse-text-employees', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: raw })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            currentEmployees = data.employees;
+            syncFromEmployees('text');
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 300);
+    }
+
+    function syncFromJson() {
+      try {
+        const val = JSON.parse(document.getElementById('users-json').value);
+        if (Array.isArray(val)) {
+          currentEmployees = val;
+          syncFromEmployees('json');
+        }
+      } catch (e) {
+        // typing JSON
+      }
+    }
+
+    function insertSampleText() {
+      const sample = currentLang === 'ru'
+        ? "Александр Смирнов\nЕлена Иванова, +7 (999) 111-22-33\nМихаил Кузнецов, +7 (999) 444-55-66, techcorp.io\nАнна Попова"
+        : "Alexander Smith\nElena Ivanova, +1 (555) 111-2233\nMichael Brown, +1 (555) 444-5566, techcorp.io\nAnna Davis";
+      document.getElementById('users-text').value = sample;
+      syncFromText();
+    }
+
+    function formatJsonTextarea() {
+      try {
+        const val = JSON.parse(document.getElementById('users-json').value);
+        document.getElementById('users-json').value = JSON.stringify(val, null, 2);
+      } catch (e) {
+        alert("Invalid JSON: " + e.message);
+      }
+    }
+
+    async function handleExcelUpload(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload-employees', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || 'Upload error');
+          return;
+        }
+        const data = await res.json();
+        currentEmployees = data.employees;
+        syncFromEmployees('excel');
+
+        const previewBox = document.getElementById('excel-preview-box');
+        document.getElementById('excel-filename').innerText = file.name;
+        const countMsg = currentLang === 'ru' ? `Загружено: ${data.count} сотрудников` : `Loaded: ${data.count} attendees`;
+        document.getElementById('excel-parsed-count').innerText = countMsg;
+
+        const tableDiv = document.getElementById('excel-table-preview');
+        const hFio = currentLang === 'ru' ? 'ФИО / Имя' : 'Full Name / Name';
+        const hPhone = currentLang === 'ru' ? 'Телефон' : 'Phone';
+        const hWeb = currentLang === 'ru' ? 'Сайт' : 'Website';
+        let html = `<table class="w-full text-left border-collapse border border-slate-200 dark:border-slate-700"><thead><tr class="bg-slate-100 dark:bg-slate-800"><th class="p-1 border border-slate-200 dark:border-slate-700">ID</th><th class="p-1 border border-slate-200 dark:border-slate-700">${hFio}</th><th class="p-1 border border-slate-200 dark:border-slate-700">${hPhone}</th><th class="p-1 border border-slate-200 dark:border-slate-700">${hWeb}</th></tr></thead><tbody>`;
+        data.employees.slice(0, 10).forEach(emp => {
+          const nameStr = emp.full_name || `${emp.name || ''} ${emp.surname || ''}`.trim();
+          html += `<tr><td class="p-1 border border-slate-200 dark:border-slate-700">#${emp.id || ''}</td><td class="p-1 border border-slate-200 dark:border-slate-700 font-semibold">${nameStr}</td><td class="p-1 border border-slate-200 dark:border-slate-700">${emp.phone || '-'}</td><td class="p-1 border border-slate-200 dark:border-slate-700">${emp.website || '-'}</td></tr>`;
+        });
+        if (data.employees.length > 10) {
+          const moreMsg = currentLang === 'ru' ? `... и еще ${data.employees.length - 10} сотрудников` : `... and ${data.employees.length - 10} more attendees`;
+          html += `<tr><td colspan="4" class="p-1 text-center text-slate-400 dark:text-slate-500 italic">${moreMsg}</td></tr>`;
+        }
+        html += '</tbody></table>';
+        tableDiv.innerHTML = html;
+        previewBox.classList.remove('hidden');
+
+      } catch (e) {
+        alert('Import error: ' + e.message);
+      }
+    }
+
+    // ================== ГЕНЕРАЦИЯ БЕЙДЖЕЙ ==================
+    async function generateBadges() {
+      const btn = document.getElementById('btn-generate');
+      const progressSection = document.getElementById('progress-section');
+      const progressBarFill = document.getElementById('progress-bar-fill');
+      const progressPercentage = document.getElementById('progress-percentage');
+      const progressSubtitle = document.getElementById('progress-subtitle');
+      const downloadBox = document.getElementById('download-box');
+      const btnDownload = document.getElementById('btn-download');
+
+      let users = currentEmployees;
+      try {
+        const jsonVal = JSON.parse(document.getElementById('users-json').value);
+        if (Array.isArray(jsonVal) && jsonVal.length > 0) {
+          users = jsonVal;
+        }
+      } catch (e) {
+        // fallback
+      }
+
+      if (!users || users.length === 0) {
+        alert(currentLang === 'ru' ? 'Список сотрудников пуст! Добавьте сотрудников.' : 'Attendee list is empty! Please add attendees.');
+        return;
+      }
+
+      const eventDate = encodeURIComponent(document.getElementById('event-date').value.trim());
+      const isPdf = document.getElementById('is-pdf').checked;
+      const categoryTitleValue = document.getElementById('category-title').value;
+      const phoneVal = document.getElementById('contact-phone').value.trim();
+      const websiteVal = document.getElementById('contact-website').value.trim();
+
+      btn.disabled = true;
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+      progressSection.classList.remove('hidden');
+      downloadBox.classList.add('hidden');
+      progressBarFill.style.width = '0%';
+      progressPercentage.innerText = '0%';
+      progressSubtitle.innerText = i18n[currentLang]?.gen_sending || 'Sending task to worker...';
+
+      try {
+        let url = `/api/create_card?template=${selectedTemplate}&event_date=${eventDate}&is_pdf=${isPdf}`;
+        if (categoryTitleValue !== '') {
+          url += `&category_title=${encodeURIComponent(categoryTitleValue.trim())}`;
+        } else {
+          url += `&category_title=`;
+        }
+        if (phoneVal) {
+          url += `&phone=${encodeURIComponent(phoneVal)}`;
+        }
+        if (websiteVal) {
+          url += `&website=${encodeURIComponent(websiteVal)}`;
+        }
+        const bgOverrideActive = document.getElementById('card-bg-override-active')?.checked;
+        const bgOverrideVal = document.getElementById('card-bg-override')?.value;
+        if (bgOverrideActive && bgOverrideVal) {
+          url += `&bg_color=${encodeURIComponent(bgOverrideVal)}`;
+        }
+
+        const accentVisible = document.getElementById('card-accent-visible')?.checked !== false;
+        url += `&accent_visible=${accentVisible}`;
+
+        const accentOverrideActive = document.getElementById('card-accent-override-active')?.checked;
+        const accentColorVal = document.getElementById('card-accent-color')?.value;
+        if (accentOverrideActive && accentColorVal) {
+          url += `&accent_color=${encodeURIComponent(accentColorVal)}`;
+        }
+
+        const qrFields = [];
+        if (document.getElementById('gen-qr-name')?.checked) qrFields.push('name');
+        if (document.getElementById('gen-qr-id')?.checked) qrFields.push('id');
+        if (document.getElementById('gen-qr-date')?.checked) qrFields.push('date');
+        if (document.getElementById('gen-qr-phone')?.checked) qrFields.push('phone');
+        if (document.getElementById('gen-qr-website')?.checked) qrFields.push('website');
+        if (qrFields.length > 0) {
+          url += `&qr_fields=${encodeURIComponent(qrFields.join(','))}`;
+        } else {
+          url += `&qr_fields=none`;
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(users),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Task creation error');
+        }
+
+        const data = await res.json();
+        progressSubtitle.innerText = currentLang === 'ru' ? `Воркер обрабатывает ${data.total_items} карточек...` : `Worker processing ${data.total_items} cards...`;
+
+        const eventSource = new EventSource(data.stream_url);
+
+        eventSource.onmessage = (event) => {
+          const ev = JSON.parse(event.data);
+          
+          if (ev.percent !== undefined) {
+            progressBarFill.style.width = `${ev.percent}%`;
+            progressPercentage.innerText = `${ev.percent}%`;
+          }
+
+          if (ev.status === 'PROCESSING') {
+            const procTemplate = i18n[currentLang]?.gen_processing || 'Generated {current} of {total}...';
+            progressSubtitle.innerText = procTemplate.replace('{current}', ev.current).replace('{total}', ev.total);
+          }
+
+          if (ev.status === 'COMPLETED') {
+            eventSource.close();
+            progressSubtitle.innerText = i18n[currentLang]?.gen_done_title || 'All Done!';
+            downloadBox.classList.remove('hidden');
+            btnDownload.href = ev.download_url;
+            window.location.href = ev.download_url;
+
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+          }
+
+          if (ev.status === 'FAILED') {
+            eventSource.close();
+            progressSubtitle.innerText = 'Error: ' + ev.error;
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            alert('Worker failure: ' + ev.error);
+          }
+        };
+
+        eventSource.onerror = () => {
+          eventSource.close();
+          btn.disabled = false;
+          btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        };
+
+      } catch (err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+
+    // Инициализация при старте
+    syncFromEmployees('init');
+    applyTranslations();
+    loadTemplates();
+  </script>
+</body>
+</html>
